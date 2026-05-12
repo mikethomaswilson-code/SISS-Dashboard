@@ -1,0 +1,2753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SISS Investment Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --navy: #1e3a5f;
+  --navy-dark: #162d4a;
+  --navy-mid: #254e78;
+  --blue: #2d6a9f;
+  --blue-dark: #245a8a;
+  --accent: #c8a951;
+  --white: #ffffff;
+  --g50: #f8f9fb;
+  --g100: #f0f2f6;
+  --g200: #dde2ea;
+  --g400: #9aa3b0;
+  --g700: #4a5260;
+  --freeze-shadow: 5px 0 8px -3px rgba(0,0,0,0.18);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; color: #1a202c; background: var(--g50); }
+
+/* ── NAV ── */
+#top-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: var(--navy); display: flex; align-items: stretch; height: 52px; padding: 0 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+.nav-brand { display: flex; align-items: center; color: #fff; font-weight: 700; font-size: 15px; letter-spacing: .3px; margin-right: 28px; white-space: nowrap; }
+.nav-brand em { color: var(--accent); font-style: normal; margin-right: 4px; }
+.nav-btns { display: flex; align-items: stretch; }
+.nav-btn { background: transparent; border: none; color: rgba(255,255,255,.72); font-size: 13px; font-weight: 500; padding: 0 18px; cursor: pointer; border-bottom: 3px solid transparent; transition: color .15s, border-color .15s, background .15s; white-space: nowrap; }
+.nav-btn:hover { color: #fff; background: rgba(255,255,255,.09); }
+.nav-btn.active { color: #fff; border-bottom-color: var(--accent); }
+
+/* ── MAIN ── */
+#main { margin-top: 52px; padding: 18px 22px; min-height: calc(100vh - 52px); }
+.page { display: none; }
+.page.active { display: block; }
+.coming-soon { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 58vh; gap: 8px; }
+.coming-soon h2 { font-size: 26px; font-weight: 300; color: var(--navy); }
+.coming-soon p { color: var(--g400); font-size: 14px; }
+
+/* ── TOOLBAR ── */
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.search-wrap { position: relative; flex: 1; max-width: 420px; }
+.search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.search-input { width: 100%; height: 36px; padding: 0 12px 0 34px; border: 1.5px solid var(--g200); border-radius: 6px; font-size: 13px; outline: none; background: #fff; transition: border-color .15s; }
+.search-input:focus { border-color: var(--blue); }
+.btn-export { height: 36px; padding: 0 16px; background: var(--blue); color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: background .15s; display: flex; align-items: center; gap: 6px; }
+.btn-export:hover { background: var(--blue-dark); }
+
+/* ── ACCORDION ── */
+.accordion { background: #fff; border-radius: 8px; box-shadow: 0 1px 5px rgba(0,0,0,.09); margin-bottom: 14px; overflow: hidden; }
+.acc-hdr { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: var(--navy); color: #fff; cursor: pointer; user-select: none; }
+.acc-hdr:hover { background: var(--navy-mid); }
+.acc-caret { font-size: 9px; transition: transform .22s; opacity: .7; flex-shrink: 0; }
+.accordion.open .acc-caret { transform: rotate(90deg); }
+.acc-name { font-weight: 600; font-size: 13px; min-width: 82px; }
+.acc-stats { display: flex; gap: 20px; flex: 1; }
+.acc-stat { display: flex; flex-direction: column; }
+.acc-stat-lbl { font-size: 9px; opacity: .58; text-transform: uppercase; letter-spacing: .5px; }
+.acc-stat-val { font-size: 12px; font-weight: 600; }
+.acc-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .28s ease; }
+.accordion.open .acc-body { grid-template-rows: 1fr; }
+.acc-body-inner { overflow: hidden; }
+
+/* ── TABLE ── */
+.tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.inv-tbl { border-collapse: separate; border-spacing: 0; min-width: 4100px; width: 100%; font-size: 12px; }
+
+.inv-tbl thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--g100); color: var(--g700); font-weight: 600; font-size: 11px;
+  text-transform: uppercase; letter-spacing: .4px;
+  padding: 8px 9px; border-bottom: 2px solid var(--g200); border-right: 1px solid var(--g200);
+  white-space: nowrap; cursor: pointer; user-select: none;
+}
+.inv-tbl thead th:hover { background: var(--g200); }
+.inv-tbl thead th.s-asc::after  { content: ' ▲'; color: var(--accent); }
+.inv-tbl thead th.s-desc::after { content: ' ▼'; color: var(--accent); }
+
+.inv-tbl tbody td {
+  padding: 7px 9px; border-bottom: 1px solid var(--g100); border-right: 1px solid #eef0f4;
+  white-space: nowrap; vertical-align: middle; background: #fff;
+}
+.inv-tbl tbody tr:nth-child(even) td { background: var(--g50); }
+.inv-tbl tbody tr:hover td { background: #dde8f8 !important; }
+.inv-tbl tbody tr:last-child td { border-bottom: none; }
+
+/* ── FROZEN COLUMNS ── */
+.c0 { width: 110px; min-width: 110px; }
+.c1 { width: 150px; min-width: 150px; }
+.c2 { width: 200px; min-width: 200px; }
+
+.inv-tbl th.c0, .inv-tbl td.c0 { position: sticky; left: 0;   z-index: 3; }
+.inv-tbl th.c1, .inv-tbl td.c1 { position: sticky; left: 110px; z-index: 3; }
+.inv-tbl th.c2, .inv-tbl td.c2 { position: sticky; left: 260px; z-index: 3; box-shadow: var(--freeze-shadow); }
+
+.inv-tbl thead th.c0,
+.inv-tbl thead th.c1,
+.inv-tbl thead th.c2 { z-index: 5; background: var(--g100); }
+
+.inv-tbl tbody td.c0,
+.inv-tbl tbody td.c1,
+.inv-tbl tbody td.c2 { background: #fff; }
+
+.inv-tbl tbody tr:nth-child(even) td.c0,
+.inv-tbl tbody tr:nth-child(even) td.c1,
+.inv-tbl tbody tr:nth-child(even) td.c2 { background: var(--g50); }
+
+.inv-tbl tbody tr:hover td.c0,
+.inv-tbl tbody tr:hover td.c1,
+.inv-tbl tbody tr:hover td.c2 { background: #dde8f8 !important; }
+
+/* ── CO-INV CHILD ROWS ── */
+.row-child td { background: #f0f4fb !important; }
+.row-child td.c0, .row-child td.c1, .row-child td.c2 { background: #e8eef8 !important; }
+.row-child:hover td { background: #d5e0f4 !important; }
+.row-child:hover td.c0,
+.row-child:hover td.c1,
+.row-child:hover td.c2 { background: #d5e0f4 !important; }
+
+/* ── COINV CONTROLS ── */
+.coinv-wrap { display: flex; align-items: center; gap: 5px; }
+.coinv-tog { background: none; border: 1px solid rgba(200,169,81,.6); border-radius: 3px; padding: 1px 5px; font-size: 9px; cursor: pointer; color: var(--accent); transition: transform .2s; flex-shrink: 0; line-height: 1.4; }
+.coinv-tog.open { transform: rotate(90deg); }
+.coinv-badge { font-size: 9px; background: var(--accent); color: #4a3000; padding: 1px 6px; border-radius: 10px; font-weight: 700; letter-spacing: .2px; flex-shrink: 0; }
+.child-indent { padding-left: 28px !important; display: block; }
+
+/* ── CLICKABLE CELLS ── */
+.cell-link { cursor: pointer; color: var(--blue); font-weight: 500; }
+.cell-link:hover { text-decoration: underline; }
+.cell-muted { color: var(--g400); font-style: italic; cursor: pointer; }
+.cell-muted:hover { color: var(--blue); }
+.tr { text-align: right; }
+
+/* ── OVERLAY ── */
+#overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.42); z-index: 200; }
+#overlay.on { display: block; }
+
+/* ── NOTES PANEL ── */
+#notes-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 380px; background: #fff; z-index: 300; display: flex; flex-direction: column; transform: translateX(100%); transition: transform .3s ease; box-shadow: -4px 0 24px rgba(0,0,0,.18); }
+#notes-panel.open { transform: translateX(0); }
+.panel-hdr { background: var(--navy); color: #fff; padding: 15px 18px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-shrink: 0; }
+.panel-hdr-txt h3 { font-size: 14px; font-weight: 600; }
+.panel-hdr-txt p { font-size: 11px; opacity: .68; margin-top: 2px; }
+.panel-x { background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; opacity: .8; line-height: 1; padding: 2px 4px; flex-shrink: 0; }
+.panel-x:hover { opacity: 1; }
+.panel-body { flex: 1; overflow-y: auto; padding: 14px; }
+.note-item { background: var(--g50); border-left: 3px solid var(--blue); border-radius: 4px; padding: 9px 11px; margin-bottom: 9px; }
+.note-ts { font-size: 10px; color: var(--g400); margin-bottom: 3px; }
+.note-txt { font-size: 12px; line-height: 1.55; }
+.no-notes { color: var(--g400); font-style: italic; text-align: center; padding: 24px 0; }
+.panel-foot { padding: 12px 14px; border-top: 1px solid var(--g200); flex-shrink: 0; }
+.panel-foot textarea { width: 100%; height: 78px; padding: 8px; border: 1.5px solid var(--g200); border-radius: 6px; font-size: 13px; resize: vertical; outline: none; font-family: inherit; }
+.panel-foot textarea:focus { border-color: var(--blue); }
+.btn-add { margin-top: 7px; width: 100%; height: 34px; background: var(--blue); color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; }
+.btn-add:hover { background: var(--blue-dark); }
+
+/* ── COMMITMENT MODAL ── */
+#cmmt-modal { display: none; position: fixed; inset: 0; z-index: 400; align-items: center; justify-content: center; }
+#cmmt-modal.on { display: flex; }
+#cmmt-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 401; }
+.modal-dlg { position: relative; z-index: 402; background: #fff; border-radius: 10px; width: 560px; max-width: 95vw; max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.28); }
+.modal-hdr { background: var(--navy); color: #fff; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-shrink: 0; }
+.modal-hdr h3 { font-size: 14px; font-weight: 600; }
+.modal-hdr p { font-size: 11px; opacity: .68; margin-top: 2px; }
+.modal-body { flex: 1; overflow-y: auto; padding: 18px 20px; }
+.hist-tbl { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+.hist-tbl th { background: var(--g100); padding: 8px 10px; text-align: left; font-size: 11px; font-weight: 600; color: var(--g700); text-transform: uppercase; letter-spacing: .4px; border-bottom: 2px solid var(--g200); }
+.hist-tbl td { padding: 8px 10px; border-bottom: 1px solid var(--g100); font-size: 12px; }
+.hist-tbl tr:last-child td { border-bottom: none; }
+.amt-pos { color: #1a7f3c; font-weight: 600; }
+.amt-neg { color: #c0392b; font-weight: 600; }
+.modal-section { font-weight: 600; font-size: 13px; color: var(--blue); margin: 8px 0 10px; padding-top: 12px; border-top: 1px solid var(--g200); }
+.form-row { display: flex; gap: 12px; margin-bottom: 10px; }
+.fg { flex: 1; }
+.fg label { display: block; font-size: 11px; font-weight: 600; color: var(--g700); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
+.fg input, .fg textarea { width: 100%; padding: 7px 10px; border: 1.5px solid var(--g200); border-radius: 6px; font-size: 13px; outline: none; font-family: inherit; }
+.fg input:focus, .fg textarea:focus { border-color: var(--blue); }
+.fg textarea { height: 62px; resize: vertical; }
+.btn-save { margin-top: 6px; width: 100%; height: 36px; background: var(--blue); color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; }
+.btn-save:hover { background: var(--blue-dark); }
+.modal-foot { padding: 12px 20px; border-top: 1px solid var(--g200); display: flex; justify-content: flex-end; flex-shrink: 0; }
+.btn-cancel { padding: 7px 18px; background: transparent; border: 1.5px solid var(--g200); border-radius: 6px; font-size: 13px; cursor: pointer; color: var(--g700); }
+.btn-cancel:hover { background: var(--g100); }
+.fg select { width: 100%; padding: 7px 10px; border: 1.5px solid var(--g200); border-radius: 6px; font-size: 13px; outline: none; font-family: inherit; background: #fff; cursor: pointer; appearance: none; }
+.fg select:focus { border-color: var(--blue); }
+
+/* ── PIPELINE ────────────────────────────────────────────────────────────── */
+.pl-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.pl-hdr h2 { font-size: 17px; font-weight: 600; color: var(--navy); }
+.pl-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.pl-filters { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
+.pl-sel { height: 34px; padding: 0 26px 0 10px; border: 1.5px solid var(--g200); border-radius: 6px; font-size: 12px; outline: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239aa3b0'/%3E%3C/svg%3E") no-repeat right 9px center / 8px; appearance: none; color: var(--g700); cursor: pointer; }
+.pl-sel:focus { border-color: var(--blue); }
+.btn-new-deal { height: 34px; padding: 0 16px; background: var(--blue); color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.btn-new-deal:hover { background: var(--blue-dark); }
+
+.pl-summary { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.pl-card { background: #fff; border-radius: 8px; padding: 10px 18px; box-shadow: 0 1px 4px rgba(0,0,0,.08); min-width: 110px; }
+.pl-card-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--g400); margin-bottom: 3px; }
+.pl-card-val { font-size: 22px; font-weight: 700; color: var(--navy); line-height: 1.1; }
+
+.pl-tbl-wrap { overflow-x: auto; background: #fff; border-radius: 8px; box-shadow: 0 1px 5px rgba(0,0,0,.09); }
+.pl-tbl { border-collapse: separate; border-spacing: 0; min-width: 2450px; width: 100%; font-size: 12px; }
+.pl-tbl thead th { position: sticky; top: 0; z-index: 2; background: var(--g100); color: var(--g700); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; padding: 8px 9px; border-bottom: 2px solid var(--g200); border-right: 1px solid var(--g200); white-space: nowrap; cursor: pointer; user-select: none; }
+.pl-tbl thead th:hover { background: var(--g200); }
+.pl-tbl thead th.s-asc::after  { content: ' ▲'; color: var(--accent); }
+.pl-tbl thead th.s-desc::after { content: ' ▼'; color: var(--accent); }
+.pl-tbl tbody td { padding: 7px 9px; border-bottom: 1px solid rgba(221,226,234,.5); border-right: 1px solid #eef0f4; vertical-align: top; line-height: 1.45; }
+.pl-tbl tbody tr:last-child td { border-bottom: none; }
+.pl-tbl tbody tr:hover td { background: #e4edf8 !important; }
+
+/* row colors by deal stage */
+.pl-tbl tr.s-active-dd td { background: #eef4fd; }
+.pl-tbl tr.s-on-hold   td { background: #fffbeb; }
+.pl-tbl tr.s-legals    td { background: #f7f0fc; }
+.pl-tbl tr.s-closed    td { background: #f0faf4; }
+.pl-tbl tr.s-declined  td { background: #fdf0f0; }
+
+/* badges */
+.bdg { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 700; letter-spacing: .2px; white-space: nowrap; }
+.bdg-active    { background: #dbeafe; color: #1d4ed8; }
+.bdg-monitor   { background: #fef3c7; color: #92400e; }
+.bdg-approved  { background: #dcfce7; color: #166534; }
+.bdg-closed    { background: #f1f5f9; color: #475569; }
+.bdg-decline   { background: #fee2e2; color: #991b1b; }
+.bdg-active-dd { background: #1e3a5f; color: #fff; }
+.bdg-on-hold   { background: #e67e22; color: #fff; }
+.bdg-legals    { background: #8e44ad; color: #fff; }
+.bdg-closed-s  { background: #27ae60; color: #fff; }
+.bdg-declined  { background: #c0392b; color: #fff; }
+.bdg-in-ptf    { background: #fff7ed; color: #b45309; border: 1px solid #fed7aa; margin-top: 3px; }
+.bdg-ic-pend   { background: var(--g100); color: var(--g700); }
+.bdg-ic-appr   { background: #dcfce7; color: #166534; }
+.bdg-ic-na     { background: var(--g100); color: var(--g400); font-style: italic; }
+
+.pl-ic-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.pl-ic-lbl { font-size: 10px; color: var(--g400); }
+.pl-staff-list { display: flex; flex-direction: column; gap: 2px; }
+.pl-staff-tag { font-size: 11px; color: var(--g700); }
+.pl-tbl td.td-sm { white-space: nowrap; vertical-align: middle; }
+.pl-tbl td.td-wrap { white-space: normal; max-width: 175px; word-break: break-word; font-size: 11px; color: var(--g700); vertical-align: top; }
+
+.btn-row-edit { background: none; border: 1px solid var(--g200); border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; color: var(--g700); white-space: nowrap; }
+.btn-row-edit:hover { background: var(--g100); border-color: var(--blue); color: var(--blue); }
+.lnk-ptf { font-size: 11px; color: var(--blue); cursor: pointer; text-decoration: underline; display: block; margin-top: 4px; white-space: nowrap; }
+
+/* portfolio row highlight on jump */
+.ptf-hl td { background: #fffde7 !important; }
+
+/* deal form */
+.deal-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+.deal-form-full { grid-column: 1 / -1; }
+.staff-checks { display: flex; flex-wrap: wrap; gap: 8px; padding: 9px 10px; border: 1.5px solid var(--g200); border-radius: 6px; min-height: 40px; }
+.staff-chk { display: flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer; white-space: nowrap; color: var(--g700); }
+.staff-chk input { width: 13px; height: 13px; accent-color: var(--blue); cursor: pointer; }
+
+/* ── RELATIONSHIP HUB ────────────────────────────────────────────────────── */
+.rh-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.rh-hdr h2 { font-size: 17px; font-weight: 600; color: var(--navy); }
+.rh-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.rh-search-wrap { position: relative; flex: 1; max-width: 340px; }
+.rh-search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.rh-search-input { width: 100%; height: 34px; padding: 0 12px 0 34px; border: 1.5px solid var(--g200); border-radius: 6px; font-size: 13px; outline: none; background: #fff; }
+.rh-search-input:focus { border-color: var(--blue); }
+
+#rh-search-results { display: none; background: #fff; border: 1.5px solid var(--g200); border-radius: 8px; box-shadow: 0 4px 18px rgba(0,0,0,.12); margin-bottom: 14px; overflow: hidden; }
+.rh-res-item { padding: 10px 16px; cursor: pointer; border-bottom: 1px solid var(--g100); }
+.rh-res-item:last-child { border-bottom: none; }
+.rh-res-item:hover { background: var(--g50); }
+.rh-res-gp { font-weight: 600; font-size: 13px; color: var(--navy); }
+.rh-res-ctx { font-size: 11px; color: var(--g400); margin-top: 1px; }
+.rh-res-snip { font-size: 12px; color: var(--g700); margin-top: 3px; line-height: 1.45; }
+.rh-no-res { padding: 12px 16px; color: var(--g400); font-style: italic; font-size: 13px; }
+mark { background: #fef9c3; border-radius: 2px; padding: 0 1px; }
+
+/* GP cards */
+.rh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); gap: 16px; }
+.gp-card { background: #fff; border-radius: 10px; box-shadow: 0 1px 5px rgba(0,0,0,.09); padding: 18px; cursor: pointer; transition: box-shadow .2s, transform .15s; border: 1.5px solid transparent; }
+.gp-card:hover { box-shadow: 0 5px 20px rgba(0,0,0,.13); transform: translateY(-2px); border-color: var(--g200); }
+.gp-card-hdr { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.gp-avatar { width: 44px; height: 44px; border-radius: 8px; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; flex-shrink: 0; letter-spacing: .5px; }
+.gp-firm { font-weight: 700; font-size: 14px; color: var(--navy); line-height: 1.25; }
+.gp-strategy-tag { font-size: 11px; color: var(--g400); margin-top: 2px; }
+.gp-card-meta { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--g700); margin-bottom: 4px; }
+.gp-meta-row { display: flex; align-items: center; gap: 6px; }
+.gp-card-footer { border-top: 1px solid var(--g100); padding-top: 10px; margin-top: 12px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--g400); }
+.gp-deal-count { background: var(--blue); color: #fff; border-radius: 10px; padding: 2px 9px; font-size: 10px; font-weight: 700; }
+
+/* GP profile panel */
+#rh-overlay { display: none; position: fixed; inset: 0; top: 52px; background: rgba(0,0,0,.28); z-index: 149; }
+#rh-overlay.on { display: block; }
+#gp-profile { position: fixed; top: 52px; right: 0; bottom: 0; width: 700px; max-width: 96vw; background: #fff; z-index: 150; display: flex; flex-direction: column; transform: translateX(100%); transition: transform .3s ease; box-shadow: -4px 0 28px rgba(0,0,0,.18); }
+#gp-profile.open { transform: translateX(0); }
+.gp-profile-hdr { background: var(--navy); color: #fff; padding: 16px 20px 12px; display: flex; align-items: flex-start; gap: 14px; flex-shrink: 0; }
+.gp-profile-avatar-lg { width: 50px; height: 50px; border-radius: 10px; background: rgba(255,255,255,.18); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 17px; flex-shrink: 0; }
+.gp-profile-hdr-info { flex: 1; min-width: 0; }
+.gp-profile-hdr-info h2 { font-size: 16px; font-weight: 700; line-height: 1.2; }
+.gp-profile-hdr-info p { font-size: 12px; opacity: .70; margin-top: 3px; }
+.gp-profile-meta { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+.gp-meta-chip { font-size: 11px; opacity: .78; }
+.gp-meta-chip span { font-weight: 600; opacity: 1; }
+.gp-profile-hdr-btns { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+.btn-tearsheet { background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.3); color: #fff; padding: 5px 11px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.btn-tearsheet:hover { background: rgba(255,255,255,.24); }
+.profile-tabs { display: flex; border-bottom: 2px solid var(--g200); background: #fafbfc; padding: 0 20px; flex-shrink: 0; overflow-x: auto; }
+.profile-tab { padding: 10px 14px; font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; color: var(--g400); transition: color .15s, border-color .15s; white-space: nowrap; }
+.profile-tab:hover { color: var(--navy); }
+.profile-tab.active { color: var(--navy); border-bottom-color: var(--blue); }
+.profile-body { flex: 1; overflow-y: auto; }
+.profile-tab-content { display: none; padding: 18px 20px; }
+.profile-tab-content.active { display: block; }
+.profile-section-title { font-weight: 600; font-size: 13px; color: var(--navy); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--g100); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.btn-sm { height: 28px; padding: 0 12px; border: none; border-radius: 5px; font-size: 12px; font-weight: 500; cursor: pointer; background: var(--blue); color: #fff; white-space: nowrap; }
+.btn-sm:hover { background: var(--blue-dark); }
+.btn-sm-ghost { background: transparent; border: 1px solid var(--g200); color: var(--g700); }
+.btn-sm-ghost:hover { background: var(--g100); border-color: var(--blue); color: var(--blue); }
+.btn-sm-danger { background: transparent; border: 1px solid #fee2e2; color: #c0392b; }
+.btn-sm-danger:hover { background: #fef2f2; }
+
+/* Contacts */
+.contact-list { display: flex; flex-direction: column; gap: 10px; }
+.contact-item { background: var(--g50); border-radius: 8px; padding: 11px 14px; display: flex; align-items: center; gap: 12px; }
+.contact-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.contact-info { flex: 1; min-width: 0; }
+.contact-name { font-weight: 600; font-size: 13px; }
+.contact-title { font-size: 11px; color: var(--g400); }
+.contact-details { font-size: 11px; color: var(--g700); margin-top: 3px; display: flex; gap: 12px; flex-wrap: wrap; }
+.contact-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* Timeline */
+.tl-list { display: flex; flex-direction: column; }
+.tl-item { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--g100); }
+.tl-item:last-child { border-bottom: none; }
+.tl-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; color: #fff; }
+.tl-call { background: #2d6a9f; }
+.tl-meeting { background: #27ae60; }
+.tl-conference { background: #8e44ad; }
+.tl-email { background: #e67e22; }
+.tl-body { flex: 1; min-width: 0; }
+.tl-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 3px; }
+.tl-type { font-size: 13px; font-weight: 600; color: var(--navy); }
+.tl-date { font-size: 11px; color: var(--g400); }
+.tl-attendees { font-size: 11px; color: var(--g400); margin-bottom: 5px; }
+.tl-notes-text { font-size: 12px; color: var(--g700); line-height: 1.6; }
+.tl-followup { font-size: 11px; color: #b45309; background: #fff7ed; padding: 4px 9px; border-radius: 4px; margin-top: 7px; display: inline-block; }
+.tl-no-items { color: var(--g400); font-style: italic; text-align: center; padding: 24px; }
+
+/* Linked deals in profile */
+.linked-deals-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.linked-deals-tbl th { background: var(--g100); padding: 7px 10px; text-align: left; font-size: 11px; font-weight: 600; color: var(--g700); text-transform: uppercase; letter-spacing: .4px; border-bottom: 2px solid var(--g200); }
+.linked-deals-tbl td { padding: 8px 10px; border-bottom: 1px solid var(--g100); vertical-align: middle; }
+.linked-deals-tbl tr:last-child td { border-bottom: none; }
+.src-tag { font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 700; }
+.src-portfolio { background: #dbeafe; color: #1d4ed8; }
+.src-pipeline  { background: #fef3c7; color: #92400e; }
+
+/* Overview notes */
+.overview-notes { background: var(--g50); border-radius: 8px; padding: 14px; font-size: 13px; line-height: 1.65; color: var(--g700); white-space: pre-wrap; margin-bottom: 14px; }
+
+/* RH modals */
+.modal-sm-dlg { width: 480px; }
+
+/* ── ANALYTICS SECTIONS ──────────────────────────────────────────────────── */
+.analytics-section { background: #fff; border-radius: 8px; box-shadow: 0 1px 5px rgba(0,0,0,.09); margin-bottom: 14px; overflow: hidden; }
+.analytics-hdr { display: flex; align-items: center; gap: 12px; padding: 9px 18px; background: var(--navy); color: #fff; cursor: pointer; user-select: none; }
+.analytics-hdr:hover { background: var(--navy-mid); }
+.an-caret { font-size: 9px; transition: transform .22s; opacity: .7; flex-shrink: 0; }
+.analytics-section.open .an-caret { transform: rotate(90deg); }
+.an-hdr-title { font-weight: 600; font-size: 13px; flex: 1; }
+.an-hdr-hint { font-size: 11px; opacity: .45; transition: opacity .2s; }
+.analytics-section.open .an-hdr-hint { opacity: 0; }
+.analytics-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .32s ease; }
+.analytics-section.open .analytics-body { grid-template-rows: 1fr; }
+.analytics-body-inner { overflow: hidden; min-height: 0; }
+.an-body-pad { padding: 16px; }
+
+/* Stats strip */
+.an-stats { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.an-stat-card { background: var(--g50); border-radius: 8px; padding: 12px 16px; flex: 1; min-width: 130px; border-left: 3px solid var(--blue); }
+.an-stat-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--g400); margin-bottom: 4px; }
+.an-stat-val { font-size: 22px; font-weight: 700; color: var(--navy); line-height: 1.1; }
+.an-stat-sub { font-size: 10px; color: var(--g400); margin-top: 2px; }
+
+/* Charts grid */
+.an-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.an-card { background: var(--g50); border-radius: 8px; padding: 14px; }
+.an-card.full { grid-column: 1 / -1; }
+.an-card-title { font-size: 12px; font-weight: 600; color: var(--navy); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .4px; }
+.an-chart-wrap { position: relative; height: 230px; }
+.an-chart-wrap.short { height: 170px; }
+.an-chart-wrap.donut { height: 220px; }
+
+/* IC Approval tracker table */
+.ic-tracker { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ic-tracker th { background: var(--g100); padding: 7px 10px; text-align: left; font-size: 11px; font-weight: 600; color: var(--g700); text-transform: uppercase; letter-spacing: .4px; border-bottom: 2px solid var(--g200); }
+.ic-tracker td { padding: 8px 10px; border-bottom: 1px solid var(--g100); vertical-align: middle; }
+.ic-tracker tr:last-child td { border-bottom: none; }
+.ic-tracker tr:nth-child(even) td { background: rgba(0,0,0,.02); }
+
+/* Staff deal cards */
+.staff-deal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-top: 4px; }
+.staff-deal-card { background: #fff; border-radius: 8px; padding: 12px 14px; border: 1px solid var(--g200); }
+.staff-deal-name { font-weight: 600; font-size: 12px; color: var(--navy); margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--g100); }
+.staff-deal-item { font-size: 11px; color: var(--g700); padding: 4px 0; display: flex; align-items: center; gap: 6px; }
+.stage-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── MANAGE STAFF ────────────────────────────────────────────────────────── */
+.ms-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.ms-hdr h2 { font-size: 17px; font-weight: 600; color: var(--navy); }
+.ms-summary { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.ms-sum-card { background: #fff; border-radius: 8px; padding: 10px 18px; box-shadow: 0 1px 4px rgba(0,0,0,.08); min-width: 110px; }
+.ms-sum-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--g400); margin-bottom: 3px; }
+.ms-sum-val { font-size: 22px; font-weight: 700; color: var(--navy); line-height: 1.1; }
+.ms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 16px; }
+.ms-card { background: #fff; border-radius: 10px; box-shadow: 0 1px 5px rgba(0,0,0,.09); padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.ms-card-hdr { display: flex; align-items: flex-start; gap: 14px; }
+.ms-avatar { width: 50px; height: 50px; border-radius: 50%; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; flex-shrink: 0; letter-spacing: .5px; }
+.ms-name { font-weight: 700; font-size: 15px; color: var(--navy); line-height: 1.2; }
+.ms-title-tag { font-size: 12px; color: var(--g400); margin-top: 2px; }
+.ms-email-tag { font-size: 11px; color: var(--blue); margin-top: 3px; }
+.ms-stats { display: flex; border: 1.5px solid var(--g200); border-radius: 8px; overflow: hidden; }
+.ms-stat { flex: 1; padding: 10px 6px; text-align: center; border-right: 1px solid var(--g200); }
+.ms-stat:last-child { border-right: none; }
+.ms-stat-val { font-size: 19px; font-weight: 700; color: var(--navy); line-height: 1; }
+.ms-stat-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .4px; color: var(--g400); margin-top: 3px; line-height: 1.3; }
+.ms-card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.ms-title-badge { display: inline-block; background: var(--g100); color: var(--g700); border-radius: 10px; padding: 2px 9px; font-size: 11px; font-weight: 500; }
+.ms-title-badge.md { background: #dbeafe; color: #1d4ed8; }
+.ms-title-badge.dir { background: #dcfce7; color: #166534; }
+.ms-title-badge.sa { background: #f3e5f5; color: #8e44ad; }
+.ms-title-badge.assoc { background: #fff3e0; color: #b45309; }
+.ms-title-badge.analyst { background: var(--g100); color: var(--g700); }
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav id="top-nav">
+  <div class="nav-brand"><em>SISS</em> Investment Dashboard</div>
+  <div class="nav-btns">
+    <button class="nav-btn active"  onclick="showPage('portfolio',this)">Portfolio</button>
+    <button class="nav-btn"         onclick="showPage('pipeline',this)">Pipeline</button>
+    <button class="nav-btn"         onclick="showPage('relationship-hub',this)">Relationship Hub</button>
+    <button class="nav-btn"         onclick="showPage('manage-staff',this)">Manage Staff</button>
+  </div>
+</nav>
+
+<main id="main">
+  <!-- PORTFOLIO -->
+  <div id="page-portfolio" class="page active">
+    <!-- PORTFOLIO ANALYTICS (collapsed by default) -->
+    <div id="pf-analytics-section" class="analytics-section">
+      <div class="analytics-hdr" onclick="toggleAnalytics('pf')">
+        <span class="an-caret">&#9658;</span>
+        <span class="an-hdr-title">Portfolio Analytics</span>
+        <span class="an-hdr-hint">Collapsed &mdash; click to expand</span>
+      </div>
+      <div class="analytics-body">
+        <div class="analytics-body-inner">
+          <div class="an-body-pad">
+            <div class="an-stats" id="pf-an-stats"></div>
+            <div class="an-grid">
+              <div class="an-card">
+                <div class="an-card-title">Total Commitment by Sub-Sleeve</div>
+                <div class="an-chart-wrap"><canvas id="pf-ch-tc"></canvas></div>
+              </div>
+              <div class="an-card">
+                <div class="an-card-title">Called vs Unfunded by Sub-Sleeve</div>
+                <div class="an-chart-wrap"><canvas id="pf-ch-cu"></canvas></div>
+              </div>
+              <div class="an-card">
+                <div class="an-card-title">Investment Type Breakdown</div>
+                <div class="an-chart-wrap donut"><canvas id="pf-ch-type"></canvas></div>
+              </div>
+              <div class="an-card">
+                <div class="an-card-title">Asset Class Split</div>
+                <div class="an-chart-wrap donut"><canvas id="pf-ch-asset"></canvas></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9aa3b0" stroke-width="2.2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input type="search" class="search-input" id="global-search"
+               placeholder="Search investments, GP, sector, country…"
+               oninput="filterAll(this.value)">
+      </div>
+      <button class="btn-export" onclick="exportCSV()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Export CSV
+      </button>
+    </div>
+    <div id="acc-container"></div>
+  </div>
+
+  <!-- OTHER PAGES -->
+  <div id="page-pipeline" class="page">
+    <!-- PIPELINE ANALYTICS (collapsed by default) -->
+    <div id="pl-analytics-section" class="analytics-section">
+      <div class="analytics-hdr" onclick="toggleAnalytics('pl')">
+        <span class="an-caret">&#9658;</span>
+        <span class="an-hdr-title">Pipeline Analytics</span>
+        <span class="an-hdr-hint">Collapsed &mdash; click to expand</span>
+      </div>
+      <div class="analytics-body">
+        <div class="analytics-body-inner">
+          <div class="an-body-pad">
+            <div class="an-stats" id="pl-an-stats"></div>
+            <div class="an-grid">
+              <div class="an-card">
+                <div class="an-card-title">Deal Stage Funnel</div>
+                <div class="an-chart-wrap"><canvas id="pl-ch-funnel"></canvas></div>
+              </div>
+              <div class="an-card">
+                <div class="an-card-title">Pipeline Amount by Sleeve ($M)</div>
+                <div class="an-chart-wrap"><canvas id="pl-ch-sleeve"></canvas></div>
+              </div>
+              <div class="an-card full">
+                <div class="an-card-title">IC Approval Status</div>
+                <div id="pl-ic-tracker"></div>
+              </div>
+              <div class="an-card full">
+                <div class="an-card-title">Staff Bandwidth &mdash; Active Deals by Stage</div>
+                <div class="an-chart-wrap short"><canvas id="pl-ch-bandwidth"></canvas></div>
+              </div>
+            </div>
+            <div class="an-card">
+              <div class="an-card-title">Staff Assigned to Active Deals</div>
+              <div class="staff-deal-grid" id="pl-staff-cards"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="pl-hdr">
+      <h2>Deal Pipeline</h2>
+      <button class="btn-new-deal" onclick="openDealModal(null)">&#43; New Investment</button>
+    </div>
+    <div class="pl-summary" id="pl-summary"></div>
+    <div class="pl-toolbar">
+      <div class="pl-filters">
+        <select class="pl-sel" id="pl-f-sleeve" onchange="applyPlFilters()">
+          <option value="">All Sleeves</option>
+          <option>SISS PE</option><option>SISS PC</option><option>SISS Infra</option><option>Scaling</option>
+        </select>
+        <select class="pl-sel" id="pl-f-status" onchange="applyPlFilters()">
+          <option value="">All Statuses</option>
+          <option>Active</option><option>Monitor</option><option>Approved</option><option>Closed</option><option>Decline</option>
+        </select>
+        <select class="pl-sel" id="pl-f-stage" onchange="applyPlFilters()">
+          <option value="">All Stages</option>
+          <option>Active DD</option><option>On Hold</option><option>Legals</option><option>Closed</option><option>Declined</option>
+        </select>
+        <select class="pl-sel" id="pl-f-staff" onchange="applyPlFilters()">
+          <option value="">All Staff</option>
+        </select>
+      </div>
+    </div>
+    <div class="pl-tbl-wrap">
+      <table class="pl-tbl">
+        <thead><tr id="pl-thead"></tr></thead>
+        <tbody id="pl-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="page-relationship-hub" class="page">
+    <div class="rh-hdr">
+      <h2>Relationship Hub</h2>
+      <button class="btn-new-deal" onclick="openAddGPModal()">&#43; Add New GP</button>
+    </div>
+    <div id="rh-search-results"></div>
+    <div class="rh-toolbar">
+      <div class="rh-search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9aa3b0" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="search" class="rh-search-input" id="rh-search" placeholder="Search GPs, interactions, contacts…" oninput="rhSearch(this.value)">
+      </div>
+      <select class="pl-sel" id="rh-f-owner" onchange="applyRHFilters()"><option value="">All Owners</option></select>
+      <select class="pl-sel" id="rh-f-strategy" onchange="applyRHFilters()"><option value="">All Strategies</option></select>
+      <select class="pl-sel" id="rh-f-sleeve" onchange="applyRHFilters()">
+        <option value="">All Sleeves</option>
+        <option>SISS PE</option><option>SISS PC</option><option>SISS Infra</option><option>Scaling</option>
+      </select>
+    </div>
+    <div class="rh-grid" id="rh-cards"></div>
+  </div>
+  <div id="page-manage-staff" class="page">
+    <div class="ms-hdr">
+      <h2>Manage Staff</h2>
+      <button class="btn-new-deal" onclick="openAddStaffModal()">&#43; Add New Staff</button>
+    </div>
+    <div class="ms-summary" id="ms-summary"></div>
+    <div class="ms-grid" id="ms-cards"></div>
+  </div>
+</main>
+
+<!-- OVERLAY (closes notes panel) -->
+<div id="overlay" onclick="closeNotes()"></div>
+
+<!-- NOTES SIDE PANEL -->
+<div id="notes-panel">
+  <div class="panel-hdr">
+    <div class="panel-hdr-txt">
+      <h3>Notes</h3>
+      <p id="notes-sub"></p>
+    </div>
+    <button class="panel-x" onclick="closeNotes()">&#215;</button>
+  </div>
+  <div class="panel-body" id="notes-body"></div>
+  <div class="panel-foot">
+    <textarea id="notes-ta" placeholder="Add a note…"></textarea>
+    <button class="btn-add" onclick="addNote()">Add Note</button>
+  </div>
+</div>
+
+<!-- COMMITMENT HISTORY MODAL -->
+<div id="cmmt-modal">
+  <div id="cmmt-backdrop" onclick="closeCmmt()"></div>
+  <div class="modal-dlg">
+    <div class="modal-hdr">
+      <div><h3>Commitment History</h3><p id="cmmt-inv-name"></p></div>
+      <button class="panel-x" onclick="closeCmmt()">&#215;</button>
+    </div>
+    <div class="modal-body">
+      <div id="cmmt-hist"></div>
+      <div class="modal-section">Record New Change</div>
+      <div class="form-row">
+        <div class="fg">
+          <label>Date</label>
+          <input type="date" id="cmmt-date">
+        </div>
+        <div class="fg">
+          <label>Amount (USD)</label>
+          <input type="number" id="cmmt-amt" placeholder="e.g. 5000000">
+        </div>
+      </div>
+      <div class="fg" style="margin-bottom:8px">
+        <label>Reason</label>
+        <textarea id="cmmt-reason" placeholder="Describe the reason for this change…"></textarea>
+      </div>
+      <button class="btn-save" onclick="saveCmmt()">Save Change</button>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeCmmt()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- GP PROFILE OVERLAY + PANEL -->
+<div id="rh-overlay" onclick="closeGPProfile()"></div>
+<div id="gp-profile">
+  <div class="gp-profile-hdr">
+    <div class="gp-profile-avatar-lg" id="gp-avatar-lg"></div>
+    <div class="gp-profile-hdr-info">
+      <h2 id="gp-profile-firm"></h2>
+      <p id="gp-profile-sub"></p>
+      <div class="gp-profile-meta" id="gp-profile-meta"></div>
+    </div>
+    <div class="gp-profile-hdr-btns">
+      <button class="btn-tearsheet" onclick="generateTearsheet(activeGpId)">&#128196; Tearsheet</button>
+      <button class="panel-x" onclick="closeGPProfile()">&#215;</button>
+    </div>
+  </div>
+  <div class="profile-tabs">
+    <div class="profile-tab active" data-tab="overview" onclick="switchProfileTab('overview')">Overview</div>
+    <div class="profile-tab" data-tab="deals" onclick="switchProfileTab('deals')">Linked Deals</div>
+    <div class="profile-tab" data-tab="contacts" onclick="switchProfileTab('contacts')">Contacts</div>
+    <div class="profile-tab" data-tab="timeline" onclick="switchProfileTab('timeline')">Timeline</div>
+  </div>
+  <div class="profile-body">
+    <div class="profile-tab-content active" data-tab="overview" id="ptc-overview"></div>
+    <div class="profile-tab-content" data-tab="deals" id="ptc-deals"></div>
+    <div class="profile-tab-content" data-tab="contacts" id="ptc-contacts"></div>
+    <div class="profile-tab-content" data-tab="timeline" id="ptc-timeline"></div>
+  </div>
+</div>
+
+<!-- ADD GP MODAL -->
+<div id="add-gp-modal" style="display:none;position:fixed;inset:0;z-index:600;align-items:center;justify-content:center">
+  <div onclick="closeAddGPModal()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:601"></div>
+  <div class="modal-dlg modal-sm-dlg" style="z-index:602">
+    <div class="modal-hdr"><div><h3>Add New GP / Partner Firm</h3></div><button class="panel-x" onclick="closeAddGPModal()">&#215;</button></div>
+    <div class="modal-body">
+      <div class="deal-form-grid">
+        <div class="fg deal-form-full"><label>Firm Name *</label><input type="text" id="gp-f-name" placeholder="e.g. Blackstone"></div>
+        <div class="fg"><label>Strategy / Focus</label><input type="text" id="gp-f-strategy" placeholder="e.g. Growth Equity"></div>
+        <div class="fg"><label>Location</label><input type="text" id="gp-f-location" placeholder="e.g. New York, NY"></div>
+        <div class="fg"><label>Website</label><input type="text" id="gp-f-website" placeholder="e.g. firm.com"></div>
+        <div class="fg"><label>AUM ($B)</label><input type="number" step="0.1" id="gp-f-aum" placeholder="e.g. 12.5"></div>
+        <div class="fg"><label>Current Fund Size ($M)</label><input type="number" id="gp-f-fundsize" placeholder="e.g. 2500"></div>
+        <div class="fg deal-form-full"><label>Relationship Owner</label><select id="gp-f-owner"></select></div>
+        <div class="fg deal-form-full"><label>Notes</label><textarea id="gp-f-notes" placeholder="Overview notes about this GP relationship…"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-foot" style="gap:10px">
+      <button class="btn-cancel" onclick="closeAddGPModal()">Cancel</button>
+      <button class="btn-save" onclick="saveNewGP()" style="width:auto;padding:0 24px;margin:0">Save GP</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD / EDIT CONTACT MODAL -->
+<div id="add-contact-modal" style="display:none;position:fixed;inset:0;z-index:600;align-items:center;justify-content:center">
+  <div onclick="closeContactModal()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:601"></div>
+  <div class="modal-dlg modal-sm-dlg" style="z-index:602">
+    <div class="modal-hdr"><div><h3 id="contact-modal-title">Add Contact</h3></div><button class="panel-x" onclick="closeContactModal()">&#215;</button></div>
+    <div class="modal-body">
+      <div class="deal-form-grid">
+        <div class="fg deal-form-full"><label>Name *</label><input type="text" id="cnt-f-name" placeholder="Full name"></div>
+        <div class="fg"><label>Title</label><input type="text" id="cnt-f-title" placeholder="e.g. Managing Director"></div>
+        <div class="fg"><label>Email</label><input type="email" id="cnt-f-email" placeholder="email@firm.com"></div>
+        <div class="fg deal-form-full"><label>Phone</label><input type="text" id="cnt-f-phone" placeholder="+1 212 555 0100"></div>
+      </div>
+    </div>
+    <div class="modal-foot" style="gap:10px">
+      <button class="btn-cancel" onclick="closeContactModal()">Cancel</button>
+      <button class="btn-save" onclick="saveContact()" style="width:auto;padding:0 24px;margin:0">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD INTERACTION MODAL -->
+<div id="add-interaction-modal" style="display:none;position:fixed;inset:0;z-index:600;align-items:center;justify-content:center">
+  <div onclick="closeInteractionModal()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:601"></div>
+  <div class="modal-dlg" style="z-index:602;width:580px;max-width:96vw">
+    <div class="modal-hdr"><div><h3>Add Interaction</h3></div><button class="panel-x" onclick="closeInteractionModal()">&#215;</button></div>
+    <div class="modal-body">
+      <div class="deal-form-grid">
+        <div class="fg"><label>Date *</label><input type="date" id="int-f-date"></div>
+        <div class="fg"><label>Type</label>
+          <select id="int-f-type"><option>Call</option><option>Meeting</option><option>Conference/Annual Meeting</option><option>Email</option></select>
+        </div>
+        <div class="fg deal-form-full"><label>Attendees (Staff)</label><div class="staff-checks" id="int-staff-checks"></div></div>
+        <div class="fg deal-form-full"><label>Notes / Summary</label><textarea id="int-f-notes" style="height:90px" placeholder="Summarise what was discussed…"></textarea></div>
+        <div class="fg deal-form-full"><label>Follow-Up Items</label><input type="text" id="int-f-followup" placeholder="Any action items or follow-ups…"></div>
+      </div>
+    </div>
+    <div class="modal-foot" style="gap:10px">
+      <button class="btn-cancel" onclick="closeInteractionModal()">Cancel</button>
+      <button class="btn-save" onclick="saveInteraction()" style="width:auto;padding:0 24px;margin:0">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- STAFF ASSIGNMENT PROFILE MODAL -->
+<div id="staff-profile-modal" style="display:none;position:fixed;inset:0;z-index:600;align-items:center;justify-content:center">
+  <div onclick="closeStaffProfile()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:601"></div>
+  <div class="modal-dlg" style="z-index:602;width:680px;max-width:96vw;max-height:88vh">
+    <div class="modal-hdr">
+      <div><h3 id="sp-name"></h3><p id="sp-sub"></p></div>
+      <button class="panel-x" onclick="closeStaffProfile()">&#215;</button>
+    </div>
+    <div class="modal-body" id="sp-body"></div>
+    <div class="modal-foot"><button class="btn-cancel" onclick="closeStaffProfile()">Close</button></div>
+  </div>
+</div>
+
+<!-- ADD / EDIT STAFF FORM MODAL -->
+<div id="staff-form-modal" style="display:none;position:fixed;inset:0;z-index:600;align-items:center;justify-content:center">
+  <div onclick="closeStaffForm()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:601"></div>
+  <div class="modal-dlg modal-sm-dlg" style="z-index:602">
+    <div class="modal-hdr">
+      <div><h3 id="sf-modal-title">Add New Staff Member</h3></div>
+      <button class="panel-x" onclick="closeStaffForm()">&#215;</button>
+    </div>
+    <div class="modal-body">
+      <div class="deal-form-grid">
+        <div class="fg"><label>First Name *</label><input type="text" id="sf-first" placeholder="e.g. James"></div>
+        <div class="fg"><label>Last Name *</label><input type="text" id="sf-last" placeholder="e.g. Smith"></div>
+        <div class="fg deal-form-full">
+          <label>Title</label>
+          <select id="sf-title-sel">
+            <option>Managing Director</option><option>Partner</option><option>VP</option>
+            <option>Director</option><option>Senior Associate</option>
+            <option>Associate</option><option>Analyst</option>
+          </select>
+        </div>
+        <div class="fg deal-form-full"><label>Email</label><input type="email" id="sf-email" placeholder="name@sissinvestments.com"></div>
+      </div>
+    </div>
+    <div class="modal-foot" style="gap:10px">
+      <button class="btn-cancel" onclick="closeStaffForm()">Cancel</button>
+      <button class="btn-save" onclick="saveStaff()" style="width:auto;padding:0 24px;margin:0">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW / EDIT DEAL MODAL -->
+<div id="deal-modal" style="display:none;position:fixed;inset:0;z-index:500;align-items:center;justify-content:center">
+  <div onclick="closeDealModal()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:501"></div>
+  <div class="modal-dlg" style="z-index:502;width:740px;max-width:96vw;max-height:90vh">
+    <div class="modal-hdr">
+      <div><h3 id="deal-modal-title">New Investment</h3></div>
+      <button class="panel-x" onclick="closeDealModal()">&#215;</button>
+    </div>
+    <div class="modal-body">
+      <div class="deal-form-grid">
+        <div class="fg deal-form-full">
+          <label>Investment Name *</label>
+          <input type="text" id="df-name" placeholder="Fund or investment name">
+        </div>
+        <div class="fg deal-form-full">
+          <label>Description</label>
+          <textarea id="df-desc" placeholder="Brief description of the investment strategy…"></textarea>
+        </div>
+        <div class="fg deal-form-full">
+          <label>Discussion / Update</label>
+          <textarea id="df-update" placeholder="Latest discussion or status update…"></textarea>
+        </div>
+        <div class="fg">
+          <label>Sleeve</label>
+          <select id="df-sleeve">
+            <option>SISS PE</option><option>SISS PC</option><option>SISS Infra</option><option>Scaling</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>CalSTRS Discretion</label>
+          <select id="df-calstrs"><option>Yes</option><option>No</option></select>
+        </div>
+        <div class="fg">
+          <label>Amount ($M)</label>
+          <input type="number" id="df-amount" placeholder="e.g. 50">
+        </div>
+        <div class="fg">
+          <label>Partner / GP</label>
+          <input type="text" id="df-gp" placeholder="GP or fund manager name">
+        </div>
+        <div class="fg">
+          <label>IC1 Date</label>
+          <input type="date" id="df-ic1date">
+        </div>
+        <div class="fg">
+          <label>Status</label>
+          <select id="df-status">
+            <option>Active</option><option>Monitor</option><option>Approved</option><option>Closed</option><option>Decline</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Cap Stack</label>
+          <select id="df-capstack"><option>Equity</option><option>Debt</option><option>Mix</option></select>
+        </div>
+        <div class="fg">
+          <label>Net IRR (%)</label>
+          <input type="number" step="0.1" id="df-irr" placeholder="e.g. 18.5">
+        </div>
+        <div class="fg">
+          <label>Requires IC2</label>
+          <select id="df-ic2"><option>No</option><option>Yes</option></select>
+        </div>
+        <div class="fg">
+          <label>Est. Closing Date</label>
+          <input type="date" id="df-estclose">
+        </div>
+        <div class="fg">
+          <label>Deal Stage</label>
+          <select id="df-stage">
+            <option>Active DD</option><option>On Hold</option><option>Legals</option><option>Closed</option><option>Declined</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Decline Date</label>
+          <input type="date" id="df-declinedate">
+        </div>
+        <div class="fg deal-form-full">
+          <label>Assigned Staff</label>
+          <div class="staff-checks" id="staff-checks"></div>
+        </div>
+        <div class="fg">
+          <label>IC1 Approval</label>
+          <select id="df-ic1appr"><option>Pending</option><option>Approved</option><option>N/A</option></select>
+        </div>
+        <div class="fg">
+          <label>IC2 Approval</label>
+          <select id="df-ic2appr"><option>N/A</option><option>Pending</option><option>Approved</option></select>
+        </div>
+        <div class="fg deal-form-full">
+          <label>Notes</label>
+          <textarea id="df-notes" placeholder="Additional notes…" style="height:56px"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot" style="gap:10px">
+      <button class="btn-cancel" onclick="closeDealModal()">Cancel</button>
+      <button class="btn-save" onclick="saveDeal()" style="width:auto;padding:0 24px;margin-top:0">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── COLUMN DEFINITIONS ──────────────────────────────────────────────────────
+const COLS = [
+  { k:'subSleeve',       lbl:'Sub-Sleeve',         fc:'c0', w:110 },
+  { k:'gpName',          lbl:'GP Name',             fc:'c1', w:150 },
+  { k:'investmentName',  lbl:'Investment Name',     fc:'c2', w:200 },
+  { k:'tcAccount',       lbl:'TC Account',                   w:112 },
+  { k:'cusip',           lbl:'CUSIP',                        w:112 },
+  { k:'legalCloseDate',  lbl:'Legal Close Date',             w:128 },
+  { k:'qtrLegalClose',   lbl:'Qtr Legal Close',              w:118 },
+  { k:'fundingDate',     lbl:'Funding Date',                 w:118 },
+  { k:'approvalDate',    lbl:'Approval Date',                w:118 },
+  { k:'qtrApproval',     lbl:'Qtr Approval Date',            w:128 },
+  { k:'totalCommitment', lbl:'Total Commitment',             w:145, type:'cur', act:'commitment' },
+  { k:'calledAmount',    lbl:'Called Amount',                w:125, type:'cur' },
+  { k:'unfundedAmount',  lbl:'Unfunded Amount',              w:125, type:'cur' },
+  { k:'pctOwnership',    lbl:'% Ownership',                  w:102, type:'pct' },
+  { k:'currency',        lbl:'Currency',                     w:82 },
+  { k:'sissSector',      lbl:'SISS Sector',                  w:125 },
+  { k:'portfolio',       lbl:'Portfolio',                    w:102 },
+  { k:'strategy',        lbl:'Strategy',                     w:118 },
+  { k:'assetClass',      lbl:'Asset Class',                  w:118 },
+  { k:'investmentType',  lbl:'Investment Type',              w:132 },
+  { k:'leadReviewer',    lbl:'Lead/Reviewer',                w:125 },
+  { k:'primary',         lbl:'Primary',                      w:112 },
+  { k:'secondary',       lbl:'Secondary',                    w:112 },
+  { k:'boardSeat',       lbl:'Board Seat',                   w:92 },
+  { k:'sissBoardMember', lbl:'SISS Board Member',            w:150 },
+  { k:'control',         lbl:'Control',                      w:82 },
+  { k:'gp',              lbl:'GP',                           w:145 },
+  { k:'company',         lbl:'Company',                      w:158 },
+  { k:'hqCountry',       lbl:'HQ Country',                   w:105 },
+  { k:'region',          lbl:'Region',                       w:115 },
+  { k:'gicsSector',      lbl:'GICS Sector',                  w:135 },
+  { k:'riskScore',       lbl:'Risk Matrix Score',            w:140, type:'num' },
+  { k:'tafScore',        lbl:'TAF Score',                    w:98,  type:'num' },
+  { k:'notes',           lbl:'Notes',                        w:210, act:'notes' },
+];
+
+// ── DATA ────────────────────────────────────────────────────────────────────
+const DATA = [
+  // ── SISS PC ──────────────────────────────────────────────────────────────
+  { id:'pc1', subSleeve:'SISS PC', gpName:'Carlyle Group', investmentName:'Carlyle Partners VIII',
+    tcAccount:'TC-PC-001', cusip:'14316J108', legalCloseDate:'2021-03-15', qtrLegalClose:'Q1 2021',
+    fundingDate:'2021-04-01', approvalDate:'2021-02-20', qtrApproval:'Q1 2021',
+    totalCommitment:25000000, calledAmount:18500000, unfundedAmount:6500000,
+    pctOwnership:2.5, currency:'USD', sissSector:'Private Credit', portfolio:'Core',
+    strategy:'Buyout', assetClass:'Private Credit', investmentType:'Fund',
+    leadReviewer:'J. Smith', primary:'J. Smith', secondary:'M. Johnson',
+    boardSeat:'No', sissBoardMember:'', control:'No', gp:'Carlyle Group',
+    company:'Carlyle Group Inc.', hqCountry:'USA', region:'North America',
+    gicsSector:'Financials', riskScore:3, tafScore:7.5,
+    parent:false, child:false, parentId:null },
+
+  { id:'pc2', subSleeve:'SISS PC', gpName:'Blackstone', investmentName:'Blackstone Capital Partners IX',
+    tcAccount:'TC-PC-002', cusip:'09260D103', legalCloseDate:'2020-09-30', qtrLegalClose:'Q3 2020',
+    fundingDate:'2020-10-15', approvalDate:'2020-08-25', qtrApproval:'Q3 2020',
+    totalCommitment:30000000, calledAmount:22000000, unfundedAmount:8000000,
+    pctOwnership:1.8, currency:'USD', sissSector:'Private Credit', portfolio:'Core',
+    strategy:'Opportunistic', assetClass:'Private Credit', investmentType:'Fund',
+    leadReviewer:'L. Chen', primary:'L. Chen', secondary:'T. Davis',
+    boardSeat:'No', sissBoardMember:'', control:'No', gp:'Blackstone',
+    company:'Blackstone Inc.', hqCountry:'USA', region:'North America',
+    gicsSector:'Financials', riskScore:2, tafScore:8.2,
+    parent:false, child:false, parentId:null },
+
+  { id:'pc3', subSleeve:'SISS PC', gpName:'KKR', investmentName:'KKR North America Fund XIV',
+    tcAccount:'TC-PC-003', cusip:'48251W104', legalCloseDate:'2022-06-30', qtrLegalClose:'Q2 2022',
+    fundingDate:'2022-07-20', approvalDate:'2022-05-15', qtrApproval:'Q2 2022',
+    totalCommitment:20000000, calledAmount:14000000, unfundedAmount:6000000,
+    pctOwnership:1.2, currency:'USD', sissSector:'Private Credit', portfolio:'Core',
+    strategy:'Buyout', assetClass:'Private Credit', investmentType:'Fund',
+    leadReviewer:'R. Patel', primary:'R. Patel', secondary:'J. Smith',
+    boardSeat:'No', sissBoardMember:'', control:'No', gp:'KKR',
+    company:'KKR & Co. Inc.', hqCountry:'USA', region:'North America',
+    gicsSector:'Financials', riskScore:2, tafScore:8.0,
+    parent:false, child:false, parentId:null },
+
+  // ── SISS PE ──────────────────────────────────────────────────────────────
+  { id:'pe1', subSleeve:'SISS PE', gpName:'Apollo Global Mgmt', investmentName:'Apollo Investment Fund X',
+    tcAccount:'TC-PE-001', cusip:'03769M182', legalCloseDate:'2020-09-30', qtrLegalClose:'Q3 2020',
+    fundingDate:'2020-10-30', approvalDate:'2020-08-10', qtrApproval:'Q3 2020',
+    totalCommitment:45000000, calledAmount:36000000, unfundedAmount:9000000,
+    pctOwnership:3.1, currency:'USD', sissSector:'Private Equity', portfolio:'Core',
+    strategy:'Buyout', assetClass:'Private Equity', investmentType:'Fund',
+    leadReviewer:'J. Smith', primary:'J. Smith', secondary:'A. Kumar',
+    boardSeat:'Yes', sissBoardMember:'J. Smith', control:'No', gp:'Apollo Global Mgmt',
+    company:'Apollo Global Management Inc.', hqCountry:'USA', region:'North America',
+    gicsSector:'Financials', riskScore:3, tafScore:7.8,
+    parent:false, child:false, parentId:null },
+
+  { id:'pe2', subSleeve:'SISS PE', gpName:'Warburg Pincus', investmentName:'Warburg Pincus Global Growth XIV',
+    tcAccount:'TC-PE-002', cusip:'93448H107', legalCloseDate:'2021-12-15', qtrLegalClose:'Q4 2021',
+    fundingDate:'2022-01-10', approvalDate:'2021-11-05', qtrApproval:'Q4 2021',
+    totalCommitment:30000000, calledAmount:21000000, unfundedAmount:9000000,
+    pctOwnership:2.0, currency:'USD', sissSector:'Private Equity', portfolio:'Core',
+    strategy:'Growth Equity', assetClass:'Private Equity', investmentType:'Fund',
+    leadReviewer:'M. Johnson', primary:'M. Johnson', secondary:'L. Chen',
+    boardSeat:'No', sissBoardMember:'', control:'No', gp:'Warburg Pincus',
+    company:'Warburg Pincus LLC', hqCountry:'USA', region:'North America',
+    gicsSector:'Information Technology', riskScore:3, tafScore:7.2,
+    parent:false, child:false, parentId:null },
+
+  { id:'pe3', subSleeve:'SISS PE', gpName:'Vista Equity Partners', investmentName:'Vista Equity Partners Fund VIII',
+    tcAccount:'TC-PE-003', cusip:'92836P205', legalCloseDate:'2022-03-31', qtrLegalClose:'Q1 2022',
+    fundingDate:'2022-04-15', approvalDate:'2022-02-20', qtrApproval:'Q1 2022',
+    totalCommitment:25000000, calledAmount:16000000, unfundedAmount:9000000,
+    pctOwnership:1.5, currency:'USD', sissSector:'Private Equity', portfolio:'Core',
+    strategy:'Buyout', assetClass:'Private Equity', investmentType:'Fund',
+    leadReviewer:'T. Davis', primary:'T. Davis', secondary:'R. Patel',
+    boardSeat:'No', sissBoardMember:'', control:'No', gp:'Vista Equity Partners',
+    company:'Vista Equity Partners Mgmt LLC', hqCountry:'USA', region:'North America',
+    gicsSector:'Information Technology', riskScore:3, tafScore:7.6,
+    parent:false, child:false, parentId:null },
+
+  // Co-Inv parent
+  { id:'pe_p', subSleeve:'SISS PE', gpName:'Insight Partners', investmentName:'Insight Co-Inv: TechCo Holdings',
+    tcAccount:'TC-PE-004', cusip:'', legalCloseDate:'2024-03-01', qtrLegalClose:'Q1 2024',
+    fundingDate:'2024-03-15', approvalDate:'2024-02-15', qtrApproval:'Q1 2024',
+    totalCommitment:15000000, calledAmount:15000000, unfundedAmount:0,
+    pctOwnership:8.5, currency:'USD', sissSector:'Private Equity', portfolio:'Co-Investment',
+    strategy:'Co-Investment', assetClass:'Private Equity', investmentType:'Co-Investment',
+    leadReviewer:'A. Kumar', primary:'A. Kumar', secondary:'M. Johnson',
+    boardSeat:'Yes', sissBoardMember:'A. Kumar', control:'No', gp:'Insight Partners',
+    company:'TechCo Holdings LLC', hqCountry:'USA', region:'North America',
+    gicsSector:'Information Technology', riskScore:4, tafScore:6.8,
+    parent:true, child:false, parentId:null },
+
+  // Co-Inv children
+  { id:'pe_cb', subSleeve:'SISS PE', gpName:'Insight Partners', investmentName:'TechCo Series B',
+    tcAccount:'TC-PE-004B', cusip:'', legalCloseDate:'2022-06-30', qtrLegalClose:'Q2 2022',
+    fundingDate:'2022-07-01', approvalDate:'2022-06-01', qtrApproval:'Q2 2022',
+    totalCommitment:5000000, calledAmount:5000000, unfundedAmount:0,
+    pctOwnership:2.5, currency:'USD', sissSector:'Private Equity', portfolio:'Co-Investment',
+    strategy:'Co-Investment', assetClass:'Private Equity', investmentType:'Co-Investment',
+    leadReviewer:'A. Kumar', primary:'A. Kumar', secondary:'M. Johnson',
+    boardSeat:'No', sissBoardMember:'', control:'No', gp:'Insight Partners',
+    company:'TechCo Holdings LLC', hqCountry:'USA', region:'North America',
+    gicsSector:'Information Technology', riskScore:4, tafScore:6.5,
+    parent:false, child:true, parentId:'pe_p' },
+
+  { id:'pe_cc', subSleeve:'SISS PE', gpName:'Insight Partners', investmentName:'TechCo Series C',
+    tcAccount:'TC-PE-004C', cusip:'', legalCloseDate:'2023-04-15', qtrLegalClose:'Q2 2023',
+    fundingDate:'2023-04-20', approvalDate:'2023-03-20', qtrApproval:'Q1 2023',
+    totalCommitment:5000000, calledAmount:5000000, unfundedAmount:0,
+    pctOwnership:2.8, currency:'USD', sissSector:'Private Equity', portfolio:'Co-Investment',
+    strategy:'Co-Investment', assetClass:'Private Equity', investmentType:'Co-Investment',
+    leadReviewer:'A. Kumar', primary:'A. Kumar', secondary:'M. Johnson',
+    boardSeat:'No', sissBoardMember:'', control:'No', gp:'Insight Partners',
+    company:'TechCo Holdings LLC', hqCountry:'USA', region:'North America',
+    gicsSector:'Information Technology', riskScore:4, tafScore:6.8,
+    parent:false, child:true, parentId:'pe_p' },
+
+  { id:'pe_cg', subSleeve:'SISS PE', gpName:'Insight Partners', investmentName:'TechCo Growth Equity',
+    tcAccount:'TC-PE-004D', cusip:'', legalCloseDate:'2024-03-01', qtrLegalClose:'Q1 2024',
+    fundingDate:'2024-03-15', approvalDate:'2024-02-15', qtrApproval:'Q1 2024',
+    totalCommitment:5000000, calledAmount:5000000, unfundedAmount:0,
+    pctOwnership:3.2, currency:'USD', sissSector:'Private Equity', portfolio:'Co-Investment',
+    strategy:'Co-Investment', assetClass:'Private Equity', investmentType:'Co-Investment',
+    leadReviewer:'A. Kumar', primary:'A. Kumar', secondary:'M. Johnson',
+    boardSeat:'No', sissBoardMember:'', control:'No', gp:'Insight Partners',
+    company:'TechCo Holdings LLC', hqCountry:'USA', region:'North America',
+    gicsSector:'Information Technology', riskScore:4, tafScore:7.0,
+    parent:false, child:true, parentId:'pe_p' },
+
+  // ── SISS Infra ───────────────────────────────────────────────────────────
+  { id:'inf1', subSleeve:'SISS Infra', gpName:'Brookfield Asset Mgmt', investmentName:'Brookfield Infrastructure Fund V',
+    tcAccount:'TC-INF-001', cusip:'11271J107', legalCloseDate:'2020-12-31', qtrLegalClose:'Q4 2020',
+    fundingDate:'2021-01-15', approvalDate:'2020-11-20', qtrApproval:'Q4 2020',
+    totalCommitment:35000000, calledAmount:26000000, unfundedAmount:9000000,
+    pctOwnership:4.2, currency:'USD', sissSector:'Infrastructure', portfolio:'Core',
+    strategy:'Core Infrastructure', assetClass:'Infrastructure', investmentType:'Fund',
+    leadReviewer:'S. Williams', primary:'S. Williams', secondary:'T. Davis',
+    boardSeat:'Yes', sissBoardMember:'S. Williams', control:'No', gp:'Brookfield Asset Mgmt',
+    company:'Brookfield Asset Management Inc.', hqCountry:'Canada', region:'North America',
+    gicsSector:'Utilities', riskScore:2, tafScore:8.5,
+    parent:false, child:false, parentId:null },
+
+  { id:'inf2', subSleeve:'SISS Infra', gpName:'Global Infrastructure Partners', investmentName:'GIP IV',
+    tcAccount:'TC-INF-002', cusip:'37959X107', legalCloseDate:'2019-06-30', qtrLegalClose:'Q2 2019',
+    fundingDate:'2019-07-25', approvalDate:'2019-05-15', qtrApproval:'Q2 2019',
+    totalCommitment:30000000, calledAmount:24000000, unfundedAmount:6000000,
+    pctOwnership:2.8, currency:'USD', sissSector:'Infrastructure', portfolio:'Core',
+    strategy:'Value-Add Infrastructure', assetClass:'Infrastructure', investmentType:'Fund',
+    leadReviewer:'L. Chen', primary:'L. Chen', secondary:'S. Williams',
+    boardSeat:'No', sissBoardMember:'', control:'No', gp:'Global Infrastructure Partners',
+    company:'Global Infrastructure Partners LLC', hqCountry:'USA', region:'North America',
+    gicsSector:'Industrials', riskScore:2, tafScore:8.1,
+    parent:false, child:false, parentId:null },
+
+  { id:'inf3', subSleeve:'SISS Infra', gpName:'Macquarie', investmentName:'Macquarie Infrastructure Partners VI',
+    tcAccount:'TC-INF-003', cusip:'55608B105', legalCloseDate:'2022-09-30', qtrLegalClose:'Q3 2022',
+    fundingDate:'2022-10-20', approvalDate:'2022-08-25', qtrApproval:'Q3 2022',
+    totalCommitment:20000000, calledAmount:12000000, unfundedAmount:8000000,
+    pctOwnership:1.6, currency:'USD', sissSector:'Infrastructure', portfolio:'Core',
+    strategy:'Core Infrastructure', assetClass:'Infrastructure', investmentType:'Fund',
+    leadReviewer:'R. Patel', primary:'R. Patel', secondary:'L. Chen',
+    boardSeat:'No', sissBoardMember:'', control:'No', gp:'Macquarie',
+    company:'Macquarie Group Limited', hqCountry:'Australia', region:'Asia Pacific',
+    gicsSector:'Industrials', riskScore:2, tafScore:7.9,
+    parent:false, child:false, parentId:null },
+
+  // ── Scaling ──────────────────────────────────────────────────────────────
+  { id:'sc1', subSleeve:'Scaling', gpName:'Summit Partners', investmentName:'Summit Growth Equity XI',
+    tcAccount:'TC-SC-001', cusip:'86658M101', legalCloseDate:'2023-03-31', qtrLegalClose:'Q1 2023',
+    fundingDate:'2023-04-15', approvalDate:'2023-02-20', qtrApproval:'Q1 2023',
+    totalCommitment:15000000, calledAmount:9000000, unfundedAmount:6000000,
+    pctOwnership:1.8, currency:'USD', sissSector:'Growth Equity', portfolio:'Scaling',
+    strategy:'Growth Equity', assetClass:'Private Equity', investmentType:'Fund',
+    leadReviewer:'M. Johnson', primary:'M. Johnson', secondary:'A. Kumar',
+    boardSeat:'No', sissBoardMember:'', control:'No', gp:'Summit Partners',
+    company:'Summit Partners LP', hqCountry:'USA', region:'North America',
+    gicsSector:'Information Technology', riskScore:4, tafScore:6.5,
+    parent:false, child:false, parentId:null },
+
+  { id:'sc2', subSleeve:'Scaling', gpName:'General Atlantic', investmentName:'General Atlantic Fund 2024',
+    tcAccount:'TC-SC-002', cusip:'36917R101', legalCloseDate:'2024-06-30', qtrLegalClose:'Q2 2024',
+    fundingDate:'2024-07-15', approvalDate:'2024-05-20', qtrApproval:'Q2 2024',
+    totalCommitment:20000000, calledAmount:10000000, unfundedAmount:10000000,
+    pctOwnership:2.2, currency:'USD', sissSector:'Growth Equity', portfolio:'Scaling',
+    strategy:'Growth Equity', assetClass:'Private Equity', investmentType:'Fund',
+    leadReviewer:'T. Davis', primary:'T. Davis', secondary:'J. Smith',
+    boardSeat:'No', sissBoardMember:'', control:'No', gp:'General Atlantic',
+    company:'General Atlantic LLC', hqCountry:'USA', region:'North America',
+    gicsSector:'Consumer Discretionary', riskScore:3, tafScore:7.0,
+    parent:false, child:false, parentId:null },
+];
+
+// ── STORES ──────────────────────────────────────────────────────────────────
+const notesStore = {
+  'pe_p': [
+    { text:'Board approved co-investment 2024-03-01. Management fee waived by GP.', ts:'2024-03-01T10:00:00' },
+    { text:'TechCo Q1 2024 revenue up 42% YoY. Management reaffirmed growth targets.', ts:'2024-05-15T14:30:00' },
+  ],
+  'pe1': [{ text:'Strong vintage year. Q3 distribution expected per LP update.', ts:'2025-04-10T09:00:00' }],
+  'inf1': [{ text:'Brookfield completed asset sale — strong DPI. Monitoring reinvestment pace.', ts:'2025-02-28T11:15:00' }],
+};
+const cmmtStore = {
+  'pc1': [
+    { date:'2021-01-15', amount:20000000, reason:'Initial commitment approved by IC' },
+    { date:'2022-06-30', amount:5000000,  reason:'Follow-on increase approved by SISS Board' },
+  ],
+  'pe1': [
+    { date:'2020-08-15', amount:40000000, reason:'Initial commitment approved by IC' },
+    { date:'2021-12-15', amount:5000000,  reason:'Expanded allocation per IC approval — attractive vintage' },
+  ],
+  'inf1': [
+    { date:'2020-10-01', amount:30000000, reason:'Initial commitment approved by IC' },
+    { date:'2021-03-15', amount:5000000,  reason:'Additional commitment to access co-investment rights' },
+  ],
+};
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+const SLEEVES   = ['SISS PC','SISS PE','SISS Infra','Scaling'];
+const sortSt    = {};        // { sleeve: { ci, dir } }
+const expanded  = new Set(); // parent IDs with children visible
+const charts    = {};
+let activeNoteId = null;
+let activeCmmtId = null;
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function sid(s)  { return s.replace(/\s+/g,'-').toLowerCase(); }
+function esc(s)  { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function fmtM(n) {
+  if (n==null || n==='') return '—';
+  const a = Math.abs(n);
+  if (a >= 1e9) return '$'+(n/1e9).toFixed(2)+'B';
+  if (a >= 1e6) return '$'+(n/1e6).toFixed(1)+'M';
+  if (a >= 1e3) return '$'+(n/1e3).toFixed(0)+'K';
+  return '$'+n.toFixed(0);
+}
+function fmtCell(col, val) {
+  if (val===null||val===undefined||val==='') return '—';
+  if (col.type==='cur') return fmtM(val);
+  if (col.type==='pct') return val.toFixed(1)+'%';
+  if (col.type==='num') return String(val);
+  return esc(String(val));
+}
+function fmtTs(ts) {
+  return new Date(ts).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function fmtDate(d) {
+  return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+
+function topLevel(sleeve) {
+  const base     = DATA.filter(d => d.subSleeve===sleeve && !d.child);
+  const approved = PIPELINE_DATA
+    .filter(p => p.sleeve===sleeve && p.status==='Approved')
+    .map(plToPortfolio);
+  return [...base, ...approved];
+}
+function kidsOf(pid)       { return DATA.filter(d => d.parentId===pid); }
+function sleeveStats(sleeve) {
+  const top = topLevel(sleeve);
+  return {
+    count: top.length,
+    tc: top.reduce((s,d)=>s+d.totalCommitment, 0),
+    ca: top.reduce((s,d)=>s+d.calledAmount, 0),
+    uf: top.reduce((s,d)=>s+d.unfundedAmount, 0),
+  };
+}
+
+// ── NAV ──────────────────────────────────────────────────────────────────────
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── ACCORDION ────────────────────────────────────────────────────────────────
+function toggleAcc(sleeve) {
+  document.getElementById('acc-'+sid(sleeve)).classList.toggle('open');
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+function init() {
+  const container = document.getElementById('acc-container');
+  container.innerHTML = SLEEVES.map(s => accHTML(s)).join('');
+  container.querySelectorAll('.inv-tbl').forEach(tbl => wireTable(tbl));
+  initCharts();
+  initPipeline();
+  initRH();
+  initMS();
+}
+
+function accHTML(sleeve) {
+  const st = sleeveStats(sleeve);
+  const id = sid(sleeve);
+  return `
+<div class="accordion open" id="acc-${id}" data-sleeve="${sleeve}">
+  <div class="acc-hdr" onclick="toggleAcc('${sleeve}')">
+    <span class="acc-caret">&#9658;</span>
+    <span class="acc-name">${sleeve}</span>
+    <div class="acc-stats">
+      <div class="acc-stat">
+        <span class="acc-stat-lbl">Investments</span>
+        <span class="acc-stat-val">${st.count}</span>
+      </div>
+      <div class="acc-stat">
+        <span class="acc-stat-lbl">Total Commitment</span>
+        <span class="acc-stat-val">${fmtM(st.tc)}</span>
+      </div>
+      <div class="acc-stat">
+        <span class="acc-stat-lbl">Total Called</span>
+        <span class="acc-stat-val">${fmtM(st.ca)}</span>
+      </div>
+      <div class="acc-stat">
+        <span class="acc-stat-lbl">Unfunded</span>
+        <span class="acc-stat-val">${fmtM(st.uf)}</span>
+      </div>
+    </div>
+    <canvas id="chart-${id}" width="44" height="44"
+            onclick="event.stopPropagation()"
+            style="flex-shrink:0;cursor:default"></canvas>
+  </div>
+  <div class="acc-body">
+    <div class="acc-body-inner">
+      <div class="tbl-wrap">${tableHTML(sleeve)}</div>
+    </div>
+  </div>
+</div>`;
+}
+
+function tableHTML(sleeve, sc=-1, sd='asc') {
+  const hdr = COLS.map((c,i) => {
+    const fc  = c.fc ? ` ${c.fc}` : '';
+    const sw  = c.w  ? ` style="width:${c.w}px;min-width:${c.w}px"` : '';
+    const scl = (i===sc) ? (sd==='asc' ? ' s-asc' : ' s-desc') : '';
+    return `<th class="${fc}${scl}"${sw}>${c.lbl}</th>`;
+  }).join('');
+  return `<table class="inv-tbl" data-sleeve="${sleeve}" data-sc="${sc}" data-sd="${sd}">
+  <thead><tr>${hdr}</tr></thead>
+  <tbody>${rowsHTML(sleeve, sc, sd)}</tbody>
+</table>`;
+}
+
+function rowsHTML(sleeve, sc, sd) {
+  let top = [...topLevel(sleeve)];
+  if (sc >= 0) {
+    const k = COLS[sc].k;
+    top.sort((a,b) => {
+      let va = a[k]??'', vb = b[k]??'';
+      if (typeof va==='number' && typeof vb==='number')
+        return sd==='asc' ? va-vb : vb-va;
+      va = String(va).toLowerCase(); vb = String(vb).toLowerCase();
+      return sd==='asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+  }
+  const out = [];
+  top.forEach(inv => {
+    out.push(rowHTML(inv, false));
+    if (inv.parent) {
+      const open = expanded.has(inv.id);
+      kidsOf(inv.id).forEach(ch => out.push(rowHTML(ch, true, !open)));
+    }
+  });
+  return out.join('');
+}
+
+function rowHTML(inv, isChild, hidden=false) {
+  const childCls = isChild ? ' row-child' : '';
+  const disp     = hidden  ? ' style="display:none"' : '';
+  const cells = COLS.map(c => {
+    const fc = c.fc ? ` ${c.fc}` : '';
+    if (c.act==='notes') {
+      const ns = notesStore[inv.id]||[];
+      const inner = ns.length
+        ? `<span class="cell-link" data-act="notes" data-id="${inv.id}">${ns.length} note${ns.length>1?'s':''}</span>`
+        : `<span class="cell-muted" data-act="notes" data-id="${inv.id}">+ Add note</span>`;
+      return `<td class="${fc}">${inner}</td>`;
+    }
+    if (c.act==='commitment') {
+      return `<td class="${fc} tr"><span class="cell-link" data-act="commitment" data-id="${inv.id}">${fmtM(inv[c.k])}</span></td>`;
+    }
+    if (c.k==='investmentName') {
+      let inner;
+      if (inv.parent) {
+        const openCls = expanded.has(inv.id) ? ' open' : '';
+        inner = `<div class="coinv-wrap">
+          <button class="coinv-tog${openCls}" data-act="coinv" data-id="${inv.id}">&#9658;</button>
+          <span class="coinv-badge">Co-Inv</span>${esc(inv.investmentName)}
+        </div>`;
+      } else if (isChild) {
+        inner = `<span class="child-indent">&#8627; ${esc(inv.investmentName)}</span>`;
+      } else {
+        inner = esc(inv.investmentName);
+      }
+      return `<td class="${fc}">${inner}</td>`;
+    }
+    const align = (c.type==='cur'||c.type==='pct'||c.type==='num') ? ' tr' : '';
+    return `<td class="${fc}${align}">${fmtCell(c, inv[c.k])}</td>`;
+  }).join('');
+  return `<tr class="inv-row${childCls}" data-id="${inv.id}"${disp}>${cells}</tr>`;
+}
+
+// ── WIRE TABLE EVENTS ────────────────────────────────────────────────────────
+function wireTable(tbl) {
+  // Sort on header click
+  tbl.querySelector('thead tr').addEventListener('click', e => {
+    const th = e.target.closest('th');
+    if (!th) return;
+    const ci = [...tbl.querySelector('thead tr').children].indexOf(th);
+    const sleeve = tbl.dataset.sleeve;
+    doSort(sleeve, ci);
+  });
+  // Cell actions via delegation
+  tbl.querySelector('tbody').addEventListener('click', e => {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    e.stopPropagation();
+    const { act, id } = el.dataset;
+    if (act==='notes')      openNotes(id);
+    if (act==='commitment') openCmmt(id);
+    if (act==='coinv')      toggleKids(id, tbl.dataset.sleeve);
+  });
+}
+
+// ── SORT ─────────────────────────────────────────────────────────────────────
+function doSort(sleeve, ci) {
+  if (!sortSt[sleeve]) sortSt[sleeve] = { ci:-1, dir:'asc' };
+  const s = sortSt[sleeve];
+  s.dir = (s.ci===ci && s.dir==='asc') ? 'desc' : 'asc';
+  s.ci  = ci;
+  const acc  = document.getElementById('acc-'+sid(sleeve));
+  const wrap = acc.querySelector('.tbl-wrap');
+  wrap.innerHTML = tableHTML(sleeve, s.ci, s.dir);
+  wireTable(wrap.querySelector('.inv-tbl'));
+}
+
+// ── CO-INV TOGGLE ────────────────────────────────────────────────────────────
+function toggleKids(pid, sleeve) {
+  expanded.has(pid) ? expanded.delete(pid) : expanded.add(pid);
+  const open = expanded.has(pid);
+  // Toggle child row visibility
+  document.querySelectorAll(`tr.inv-row[data-id]`).forEach(tr => {
+    const inv = DATA.find(d => d.id===tr.dataset.id);
+    if (inv && inv.child && inv.parentId===pid)
+      tr.style.display = open ? '' : 'none';
+  });
+  // Rotate toggle button(s)
+  document.querySelectorAll(`[data-act="coinv"][data-id="${pid}"]`).forEach(btn => {
+    btn.classList.toggle('open', open);
+  });
+}
+
+// ── CHARTS ───────────────────────────────────────────────────────────────────
+function initCharts() {
+  SLEEVES.forEach(sleeve => {
+    const st  = sleeveStats(sleeve);
+    const id  = sid(sleeve);
+    const cvs = document.getElementById('chart-'+id);
+    if (!cvs) return;
+    if (charts[id]) charts[id].destroy();
+    charts[id] = new Chart(cvs, {
+      type: 'doughnut',
+      data: {
+        datasets: [{
+          data: [st.ca, st.uf||1],
+          backgroundColor: ['#c8a951','rgba(255,255,255,0.22)'],
+          borderColor:     ['#b8943f','rgba(255,255,255,0.35)'],
+          borderWidth: 1,
+        }],
+      },
+      options: {
+        plugins: { legend:{ display:false }, tooltip:{ enabled:false } },
+        cutout: '68%',
+        animation: false,
+        responsive: false,
+      },
+    });
+  });
+}
+
+// ── NOTES PANEL ──────────────────────────────────────────────────────────────
+function openNotes(id) {
+  const inv = DATA.find(d => d.id===id);
+  activeNoteId = id;
+  document.getElementById('notes-sub').textContent = inv ? inv.investmentName : '';
+  document.getElementById('notes-ta').value = '';
+  renderNotes();
+  document.getElementById('notes-panel').classList.add('open');
+  document.getElementById('overlay').classList.add('on');
+}
+function renderNotes() {
+  const ns   = notesStore[activeNoteId]||[];
+  const body = document.getElementById('notes-body');
+  body.innerHTML = ns.length
+    ? ns.map(n => `<div class="note-item">
+        <div class="note-ts">${fmtTs(n.ts)}</div>
+        <div class="note-txt">${esc(n.text)}</div>
+      </div>`).join('')
+    : '<p class="no-notes">No notes yet. Add one below.</p>';
+}
+function addNote() {
+  const txt = document.getElementById('notes-ta').value.trim();
+  if (!txt) return;
+  if (!notesStore[activeNoteId]) notesStore[activeNoteId] = [];
+  notesStore[activeNoteId].push({ text:txt, ts:new Date().toISOString() });
+  document.getElementById('notes-ta').value = '';
+  renderNotes();
+  refreshNotesCells(activeNoteId);
+}
+function refreshNotesCells(id) {
+  const ns = notesStore[id]||[];
+  document.querySelectorAll(`[data-act="notes"][data-id="${id}"]`).forEach(el => {
+    if (ns.length) { el.className='cell-link';  el.textContent=`${ns.length} note${ns.length>1?'s':''}`; }
+    else           { el.className='cell-muted'; el.textContent='+ Add note'; }
+  });
+}
+function closeNotes() {
+  document.getElementById('notes-panel').classList.remove('open');
+  document.getElementById('overlay').classList.remove('on');
+  activeNoteId = null;
+}
+
+// ── COMMITMENT MODAL ─────────────────────────────────────────────────────────
+function openCmmt(id) {
+  const inv = DATA.find(d => d.id===id);
+  activeCmmtId = id;
+  document.getElementById('cmmt-inv-name').textContent = inv ? inv.investmentName : '';
+  document.getElementById('cmmt-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('cmmt-amt').value  = '';
+  document.getElementById('cmmt-reason').value = '';
+  renderCmmtHist();
+  document.getElementById('cmmt-modal').classList.add('on');
+}
+function renderCmmtHist() {
+  const hist = cmmtStore[activeCmmtId]||[];
+  const el   = document.getElementById('cmmt-hist');
+  if (!hist.length) {
+    el.innerHTML = '<p style="color:var(--g400);font-style:italic;text-align:center;padding:12px 0">No commitment history recorded.</p>';
+    return;
+  }
+  const rows = [...hist].reverse().map(h => {
+    const cls  = h.amount>=0 ? 'amt-pos' : 'amt-neg';
+    const sign = h.amount>=0 ? '+' : '';
+    return `<tr>
+      <td>${fmtDate(h.date)}</td>
+      <td class="${cls} tr">${sign}${fmtM(h.amount)}</td>
+      <td>${esc(h.reason)}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<table class="hist-tbl">
+    <thead><tr><th>Date</th><th>Amount</th><th>Reason</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+function saveCmmt() {
+  const date   = document.getElementById('cmmt-date').value;
+  const amount = parseFloat(document.getElementById('cmmt-amt').value);
+  const reason = document.getElementById('cmmt-reason').value.trim();
+  if (!date || isNaN(amount) || !reason) { alert('Please complete all fields.'); return; }
+  if (!cmmtStore[activeCmmtId]) cmmtStore[activeCmmtId] = [];
+  cmmtStore[activeCmmtId].push({ date, amount, reason });
+  // Update live data
+  const inv = DATA.find(d => d.id===activeCmmtId);
+  if (inv) {
+    inv.totalCommitment += amount;
+    inv.unfundedAmount   = Math.max(0, inv.totalCommitment - inv.calledAmount);
+    document.querySelectorAll(`[data-act="commitment"][data-id="${activeCmmtId}"]`).forEach(el => {
+      el.textContent = fmtM(inv.totalCommitment);
+    });
+  }
+  document.getElementById('cmmt-date').value   = new Date().toISOString().slice(0,10);
+  document.getElementById('cmmt-amt').value    = '';
+  document.getElementById('cmmt-reason').value = '';
+  renderCmmtHist();
+}
+function closeCmmt() {
+  document.getElementById('cmmt-modal').classList.remove('on');
+  activeCmmtId = null;
+}
+
+// ── SEARCH ───────────────────────────────────────────────────────────────────
+function filterAll(q) {
+  q = q.toLowerCase().trim();
+  DATA.forEach(inv => {
+    if (inv.child) return; // handled via parent
+    const tr = document.querySelector(`tr.inv-row[data-id="${inv.id}"]`);
+    if (!tr) return;
+    const hay = [inv.gpName, inv.investmentName, inv.sissSector,
+                 inv.strategy, inv.company, inv.hqCountry, inv.region, inv.subSleeve]
+                .join(' ').toLowerCase();
+    const match = !q || hay.includes(q);
+    if (inv.parent) {
+      const kids   = kidsOf(inv.id);
+      let anyKid   = false;
+      kids.forEach(ch => {
+        const chHay = [ch.gpName, ch.investmentName, ch.sissSector, ch.company].join(' ').toLowerCase();
+        const chMatch = !q || chHay.includes(q);
+        if (chMatch) anyKid = true;
+        const chTr = document.querySelector(`tr.inv-row[data-id="${ch.id}"]`);
+        if (chTr) chTr.style.display = (match||chMatch) && expanded.has(inv.id) ? '' : 'none';
+      });
+      tr.style.display = (match||anyKid) ? '' : 'none';
+    } else {
+      tr.style.display = match ? '' : 'none';
+    }
+  });
+  // Also filter pipeline-approved rows injected into portfolio
+  PIPELINE_DATA.filter(p => p.status==='Approved').forEach(p => {
+    const tr = document.querySelector(`tr.inv-row[data-id="pl_${p.id}"]`);
+    if (!tr) return;
+    const hay = [p.investmentName, p.partnerGP, p.sleeve, p.description||''].join(' ').toLowerCase();
+    tr.style.display = !q || hay.includes(q) ? '' : 'none';
+  });
+}
+
+// ── EXPORT CSV ───────────────────────────────────────────────────────────────
+function exportCSV() {
+  const hdr  = COLS.map(c => q(c.lbl)).join(',');
+  const rows = DATA.map(inv =>
+    COLS.map(c => {
+      if (c.act==='notes') {
+        const ns = notesStore[inv.id]||[];
+        return q(ns.map(n=>n.text).join(' | '));
+      }
+      return q(String(inv[c.k]??''));
+    }).join(',')
+  );
+  const csv  = [hdr,...rows].join('\r\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download='siss_portfolio.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+function q(v) { const s=String(v??''); return '"'+s.replace(/"/g,'""')+'"'; }
+
+// ── STAFF ROSTER (single source of truth across all pages) ───────────────────
+const STAFF_DATA = [
+  {id:'st1',firstName:'James',   lastName:'Smith',    title:'Managing Director', email:'jsmith@sissinvestments.com'},
+  {id:'st2',firstName:'Sarah',   lastName:'Williams', title:'Managing Director', email:'swilliams@sissinvestments.com'},
+  {id:'st3',firstName:'Margaret',lastName:'Johnson',  title:'Director',          email:'mjohnson@sissinvestments.com'},
+  {id:'st4',firstName:'Linda',   lastName:'Chen',     title:'Director',          email:'lchen@sissinvestments.com'},
+  {id:'st5',firstName:'Thomas',  lastName:'Davis',    title:'Senior Associate',  email:'tdavis@sissinvestments.com'},
+  {id:'st6',firstName:'Raj',     lastName:'Patel',    title:'Senior Associate',  email:'rpatel@sissinvestments.com'},
+  {id:'st7',firstName:'Ananya',  lastName:'Kumar',    title:'Associate',         email:'akumar@sissinvestments.com'},
+  {id:'st8',firstName:'Kevin',   lastName:'Park',     title:'Analyst',           email:'kpark@sissinvestments.com'},
+];
+let STAFF_LIST = STAFF_DATA.map(s => s.firstName[0]+'. '+s.lastName);
+
+// ── PIPELINE DATA & LOGIC ────────────────────────────────────────────────────
+
+const PIPELINE_DATA = [
+  { id:'pl1', investmentName:'Apex Growth Fund IV',
+    description:'Mid-market growth equity targeting healthcare and enterprise tech.',
+    discussionUpdate:'Initial screening complete. GP presentation scheduled for Q2 2025.',
+    sleeve:'SISS PE', calstrsDiscretion:'Yes', amount:50, partnerGP:'Apex Capital Partners',
+    ic1Date:'2025-04-15', status:'Active', notes:'',
+    capStack:'Equity', netIRR:19.5, requiresIC2:'Yes', estimatedClosingDate:'2025-10-31',
+    assignedStaff:['J. Smith','A. Kumar'],
+    icApprovals:{ic1:'Pending',ic2:'N/A'}, dealStage:'Active DD', declineDate:'' },
+
+  { id:'pl2', investmentName:'Meridian Infrastructure Partners III',
+    description:'Core-plus infrastructure fund targeting renewables and transportation.',
+    discussionUpdate:'IC1 and IC2 both approved. In final legal review, targeting June close.',
+    sleeve:'SISS Infra', calstrsDiscretion:'No', amount:75, partnerGP:'Meridian Infrastructure Advisors',
+    ic1Date:'2025-02-28', status:'Approved', notes:'IC approved unanimously. Strong co-investment rights.',
+    capStack:'Equity', netIRR:12.8, requiresIC2:'Yes', estimatedClosingDate:'2025-06-30',
+    assignedStaff:['S. Williams','L. Chen'],
+    icApprovals:{ic1:'Approved',ic2:'Approved'}, dealStage:'Legals', declineDate:'' },
+
+  { id:'pl3', investmentName:'Cornerstone Credit Opportunities VI',
+    description:'Senior secured direct lending focused on sponsor-backed middle market.',
+    discussionUpdate:'Paused pending credit committee review. Revisit in Q3 2025.',
+    sleeve:'SISS PC', calstrsDiscretion:'Yes', amount:40, partnerGP:'Cornerstone Credit Mgmt',
+    ic1Date:'2025-03-10', status:'Monitor', notes:'Macro concerns. Revisit Q3 2025.',
+    capStack:'Debt', netIRR:10.2, requiresIC2:'No', estimatedClosingDate:'2025-12-31',
+    assignedStaff:['R. Patel'],
+    icApprovals:{ic1:'Pending',ic2:'N/A'}, dealStage:'On Hold', declineDate:'' },
+
+  { id:'pl4', investmentName:'Vantage Scaling Equity III',
+    description:'Late-stage growth equity targeting Series C/D enterprise software companies.',
+    discussionUpdate:'Term sheet executed. Subscription docs under review by outside counsel.',
+    sleeve:'Scaling', calstrsDiscretion:'Yes', amount:30, partnerGP:'Vantage Growth Advisors',
+    ic1Date:'2025-01-20', status:'Approved', notes:'Strong fit with Scaling mandate. Board approved.',
+    capStack:'Equity', netIRR:22.0, requiresIC2:'No', estimatedClosingDate:'2025-05-15',
+    assignedStaff:['M. Johnson','T. Davis'],
+    icApprovals:{ic1:'Approved',ic2:'N/A'}, dealStage:'Legals', declineDate:'' },
+
+  { id:'pl5', investmentName:'Pacific Buyout Fund XI',
+    description:'Large-cap buyout targeting consumer and industrial sectors in Asia-Pacific.',
+    discussionUpdate:'Declined at IC review — FX concentration and vintage year concerns.',
+    sleeve:'SISS PE', calstrsDiscretion:'No', amount:60, partnerGP:'Pacific Private Capital',
+    ic1Date:'2024-11-05', status:'Decline', notes:'High FX risk. Not aligned with current mandate.',
+    capStack:'Equity', netIRR:16.0, requiresIC2:'Yes', estimatedClosingDate:'',
+    assignedStaff:['J. Smith','L. Chen'],
+    icApprovals:{ic1:'Approved',ic2:'N/A'}, dealStage:'Declined', declineDate:'2025-01-15' },
+
+  { id:'pl6', investmentName:'Northstar Direct Lending IV',
+    description:'Direct lending targeting healthcare and tech-enabled services.',
+    discussionUpdate:'Early diligence. Awaiting updated fund terms and LP reference calls.',
+    sleeve:'SISS PC', calstrsDiscretion:'Yes', amount:35, partnerGP:'Northstar Credit Partners',
+    ic1Date:'', status:'Active', notes:'',
+    capStack:'Debt', netIRR:11.5, requiresIC2:'No', estimatedClosingDate:'2026-01-31',
+    assignedStaff:['R. Patel','M. Johnson'],
+    icApprovals:{ic1:'Pending',ic2:'N/A'}, dealStage:'Active DD', declineDate:'' },
+];
+
+const PL_COLS = [
+  {k:'investmentName',       lbl:'Investment Name',     w:175},
+  {k:'description',          lbl:'Description',         w:165, wrap:true},
+  {k:'discussionUpdate',     lbl:'Discussion / Update', w:165, wrap:true},
+  {k:'sleeve',               lbl:'Sleeve',              w:95},
+  {k:'calstrsDiscretion',    lbl:'CalSTRS Discretion',  w:105},
+  {k:'amount',               lbl:'Amount ($M)',          w:90,  type:'num'},
+  {k:'partnerGP',            lbl:'Partner / GP',        w:155},
+  {k:'ic1Date',              lbl:'IC1 Date',            w:100},
+  {k:'status',               lbl:'Status',              w:135, type:'status'},
+  {k:'notes',                lbl:'Notes',               w:155, wrap:true},
+  {k:'capStack',             lbl:'Cap Stack',           w:88},
+  {k:'netIRR',               lbl:'Net IRR (%)',         w:86,  type:'num'},
+  {k:'requiresIC2',          lbl:'Requires IC2',        w:92},
+  {k:'estimatedClosingDate', lbl:'Est. Close Date',     w:112},
+  {k:'assignedStaff',        lbl:'Assigned Staff',      w:130, type:'staff'},
+  {k:'icApprovals',          lbl:'IC Approvals',        w:130, type:'ic'},
+  {k:'dealStage',            lbl:'Deal Stage',          w:110, type:'stage'},
+  {k:'declineDate',          lbl:'Decline Date',        w:100},
+  {k:'_actions',             lbl:'Actions',             w:130, type:'actions'},
+];
+
+let plSortSt    = { ci:-1, dir:'asc' };
+let plFilters   = { sleeve:'', status:'', stage:'', staff:'' };
+let editDealId  = null;
+let plIdSeq     = 100;
+
+function plToPortfolio(p) {
+  return {
+    id: 'pl_'+p.id,
+    subSleeve: p.sleeve, gpName: p.partnerGP, investmentName: p.investmentName,
+    tcAccount:'', cusip:'',
+    legalCloseDate: p.estimatedClosingDate||'', qtrLegalClose:'',
+    fundingDate:'', approvalDate: p.ic1Date||'', qtrApproval:'',
+    totalCommitment: (p.amount||0)*1e6, calledAmount:0, unfundedAmount:(p.amount||0)*1e6,
+    pctOwnership:0, currency:'USD',
+    sissSector: p.sleeve, portfolio: p.sleeve, strategy: p.capStack||'',
+    assetClass:'', investmentType:'Fund',
+    leadReviewer:(p.assignedStaff||[])[0]||'', primary:(p.assignedStaff||[])[0]||'',
+    secondary:(p.assignedStaff||[])[1]||'',
+    boardSeat:'No', sissBoardMember:'', control:'No',
+    gp:p.partnerGP, company:'', hqCountry:'', region:'', gicsSector:'',
+    riskScore:'', tafScore:'',
+    parent:false, child:false, parentId:null, _fromPipeline:true,
+  };
+}
+
+function stageCls(stage) {
+  return {'Active DD':'s-active-dd','On Hold':'s-on-hold','Legals':'s-legals','Closed':'s-closed','Declined':'s-declined'}[stage]||'';
+}
+function statusBadge(status) {
+  const m = {Active:'bdg-active',Monitor:'bdg-monitor',Approved:'bdg-approved',Closed:'bdg-closed',Decline:'bdg-decline'};
+  return `<span class="bdg ${m[status]||''}">${esc(status)}</span>`;
+}
+function stageBadge(stage) {
+  const m = {'Active DD':'bdg-active-dd','On Hold':'bdg-on-hold','Legals':'bdg-legals','Closed':'bdg-closed-s','Declined':'bdg-declined'};
+  return `<span class="bdg ${m[stage]||''}">${esc(stage)}</span>`;
+}
+function icBadge(val) {
+  if (val==='Approved') return `<span class="bdg bdg-ic-appr">${val}</span>`;
+  if (val==='N/A')      return `<span class="bdg bdg-ic-na">${val}</span>`;
+  return `<span class="bdg bdg-ic-pend">${val||'Pending'}</span>`;
+}
+
+function initPipeline() {
+  // Populate staff filter dropdown
+  const sel = document.getElementById('pl-f-staff');
+  STAFF_LIST.forEach(s => { const o=document.createElement('option'); o.value=o.textContent=s; sel.appendChild(o); });
+  // Populate staff checkboxes in deal form
+  const chkContainer = document.getElementById('staff-checks');
+  STAFF_LIST.forEach(s => {
+    const lbl = document.createElement('label');
+    lbl.className = 'staff-chk';
+    lbl.innerHTML = `<input type="checkbox" value="${esc(s)}"> ${esc(s)}`;
+    chkContainer.appendChild(lbl);
+  });
+  renderPipeline();
+}
+
+function renderPipeline() {
+  renderPlSummary();
+  renderPlTable();
+}
+
+function renderPlSummary() {
+  const total   = PIPELINE_DATA.length;
+  const active  = PIPELINE_DATA.filter(p=>p.status==='Active').length;
+  const approved= PIPELINE_DATA.filter(p=>p.status==='Approved').length;
+  const amt     = PIPELINE_DATA.filter(p=>p.status!=='Decline'&&p.status!=='Closed').reduce((s,p)=>s+(p.amount||0),0);
+  document.getElementById('pl-summary').innerHTML =
+    `<div class="pl-card"><div class="pl-card-lbl">Total Deals</div><div class="pl-card-val">${total}</div></div>
+     <div class="pl-card"><div class="pl-card-lbl">Active</div><div class="pl-card-val">${active}</div></div>
+     <div class="pl-card"><div class="pl-card-lbl">Approved</div><div class="pl-card-val">${approved}</div></div>
+     <div class="pl-card"><div class="pl-card-lbl">Active Pipeline ($M)</div><div class="pl-card-val">${amt}</div></div>`;
+}
+
+function renderPlTable() {
+  const f = plFilters;
+  let rows = PIPELINE_DATA.filter(p => {
+    if (f.sleeve && p.sleeve    !== f.sleeve) return false;
+    if (f.status && p.status    !== f.status) return false;
+    if (f.stage  && p.dealStage !== f.stage)  return false;
+    if (f.staff  && !(p.assignedStaff||[]).includes(f.staff)) return false;
+    return true;
+  });
+  if (plSortSt.ci >= 0) {
+    const k = PL_COLS[plSortSt.ci].k;
+    rows = [...rows].sort((a,b) => {
+      let va=a[k]??'', vb=b[k]??'';
+      if (typeof va==='number'&&typeof vb==='number') return plSortSt.dir==='asc'?va-vb:vb-va;
+      va=String(va).toLowerCase(); vb=String(vb).toLowerCase();
+      return plSortSt.dir==='asc'?va.localeCompare(vb):vb.localeCompare(va);
+    });
+  }
+  // Build header
+  const thead = document.getElementById('pl-thead');
+  thead.innerHTML = PL_COLS.map((c,i) => {
+    const sw  = c.w ? ` style="width:${c.w}px;min-width:${c.w}px"` : '';
+    const scl = (i===plSortSt.ci) ? (plSortSt.dir==='asc' ? ' s-asc' : ' s-desc') : '';
+    return `<th class="${scl}"${sw}>${c.lbl}</th>`;
+  }).join('');
+  // Build rows
+  document.getElementById('pl-tbody').innerHTML = rows.map(p => {
+    const cells = PL_COLS.map(c => {
+      if (c.type==='actions') {
+        const vb = p.status==='Approved'
+          ? `<a class="lnk-ptf" data-pl-view="${p.id}">View in Portfolio</a>` : '';
+        return `<td class="td-sm"><button class="btn-row-edit" data-pl-edit="${p.id}">Edit</button>${vb}</td>`;
+      }
+      if (c.type==='status') {
+        const pb = p.status==='Approved'
+          ? `<br><span class="bdg bdg-in-ptf">Approved &#8211; In Portfolio</span>` : '';
+        return `<td class="td-sm">${statusBadge(p.status)}${pb}</td>`;
+      }
+      if (c.type==='stage')  return `<td class="td-sm">${stageBadge(p.dealStage)}</td>`;
+      if (c.type==='ic') {
+        return `<td class="td-sm"><div class="pl-ic-row">
+          <span class="pl-ic-lbl">IC1</span>${icBadge(p.icApprovals?.ic1)}
+          <span class="pl-ic-lbl">IC2</span>${icBadge(p.icApprovals?.ic2)}
+        </div></td>`;
+      }
+      if (c.type==='staff') {
+        const tags = (p.assignedStaff||[]).map(s=>`<div class="pl-staff-tag">${esc(s)}</div>`).join('');
+        return `<td><div class="pl-staff-list">${tags||'—'}</div></td>`;
+      }
+      if (c.type==='num') {
+        const v=p[c.k]; return `<td class="td-sm" style="text-align:right">${v!=null&&v!==''?v:'—'}</td>`;
+      }
+      if (c.wrap) return `<td class="td-wrap">${esc(String(p[c.k]||''))||'—'}</td>`;
+      return `<td class="td-sm">${esc(String(p[c.k]||''))||'—'}</td>`;
+    }).join('');
+    return `<tr class="${stageCls(p.dealStage)}" data-pl-id="${p.id}">${cells}</tr>`;
+  }).join('');
+  // Wire sort
+  thead.querySelectorAll('th').forEach((th,i) => {
+    th.addEventListener('click', () => {
+      if (PL_COLS[i].type==='actions') return;
+      plSortSt.dir = (plSortSt.ci===i && plSortSt.dir==='asc') ? 'desc' : 'asc';
+      plSortSt.ci  = i;
+      renderPlTable();
+    });
+  });
+  // Wire edit / view buttons
+  document.querySelectorAll('[data-pl-edit]').forEach(btn =>
+    btn.addEventListener('click', () => openDealModal(btn.dataset.plEdit)));
+  document.querySelectorAll('[data-pl-view]').forEach(a =>
+    a.addEventListener('click', () => viewInPortfolio(a.dataset.plView)));
+}
+
+function applyPlFilters() {
+  plFilters.sleeve = document.getElementById('pl-f-sleeve').value;
+  plFilters.status = document.getElementById('pl-f-status').value;
+  plFilters.stage  = document.getElementById('pl-f-stage').value;
+  plFilters.staff  = document.getElementById('pl-f-staff').value;
+  renderPlTable();
+}
+
+// Deal form
+function openDealModal(id) {
+  editDealId = id || null;
+  const deal = id ? PIPELINE_DATA.find(p=>p.id===id) : null;
+  document.getElementById('deal-modal-title').textContent = deal ? 'Edit Investment' : 'New Investment';
+  // Set field values
+  const v = (fid, val) => { const el=document.getElementById(fid); if(el) el.value=val??''; };
+  v('df-name',        deal?.investmentName||'');
+  v('df-desc',        deal?.description||'');
+  v('df-update',      deal?.discussionUpdate||'');
+  v('df-sleeve',      deal?.sleeve||'SISS PE');
+  v('df-calstrs',     deal?.calstrsDiscretion||'Yes');
+  v('df-amount',      deal?.amount||'');
+  v('df-gp',          deal?.partnerGP||'');
+  v('df-ic1date',     deal?.ic1Date||'');
+  v('df-status',      deal?.status||'Active');
+  v('df-capstack',    deal?.capStack||'Equity');
+  v('df-irr',         deal?.netIRR||'');
+  v('df-ic2',         deal?.requiresIC2||'No');
+  v('df-estclose',    deal?.estimatedClosingDate||'');
+  v('df-stage',       deal?.dealStage||'Active DD');
+  v('df-declinedate', deal?.declineDate||'');
+  v('df-ic1appr',     deal?.icApprovals?.ic1||'Pending');
+  v('df-ic2appr',     deal?.icApprovals?.ic2||'N/A');
+  v('df-notes',       deal?.notes||'');
+  document.querySelectorAll('.staff-chk input').forEach(cb => {
+    cb.checked = (deal?.assignedStaff||[]).includes(cb.value);
+  });
+  document.getElementById('deal-modal').style.display = 'flex';
+}
+function closeDealModal() {
+  document.getElementById('deal-modal').style.display = 'none';
+  editDealId = null;
+}
+function saveDeal() {
+  const g  = fid => document.getElementById(fid)?.value?.trim()||'';
+  const name = g('df-name');
+  if (!name) { alert('Investment Name is required.'); return; }
+  const assignedStaff = [...document.querySelectorAll('.staff-chk input:checked')].map(cb=>cb.value);
+  const d = {
+    investmentName:       name,
+    description:          g('df-desc'),
+    discussionUpdate:     g('df-update'),
+    sleeve:               g('df-sleeve')||'SISS PE',
+    calstrsDiscretion:    g('df-calstrs')||'Yes',
+    amount:               parseFloat(g('df-amount'))||0,
+    partnerGP:            g('df-gp'),
+    ic1Date:              g('df-ic1date'),
+    status:               g('df-status')||'Active',
+    capStack:             g('df-capstack')||'Equity',
+    netIRR:               parseFloat(g('df-irr'))||0,
+    requiresIC2:          g('df-ic2')||'No',
+    estimatedClosingDate: g('df-estclose'),
+    dealStage:            g('df-stage')||'Active DD',
+    declineDate:          g('df-declinedate'),
+    assignedStaff,
+    icApprovals: { ic1: g('df-ic1appr')||'Pending', ic2: g('df-ic2appr')||'N/A' },
+    notes:                g('df-notes'),
+  };
+  let oldSleeve = null;
+  if (editDealId) {
+    const idx = PIPELINE_DATA.findIndex(p=>p.id===editDealId);
+    if (idx >= 0) {
+      oldSleeve = PIPELINE_DATA[idx].sleeve;
+      PIPELINE_DATA[idx] = { ...PIPELINE_DATA[idx], ...d };
+    }
+  } else {
+    d.id = 'pl'+(++plIdSeq);
+    PIPELINE_DATA.push(d);
+  }
+  if (oldSleeve && oldSleeve !== d.sleeve) reRenderAccordion(oldSleeve);
+  reRenderAccordion(d.sleeve);
+  closeDealModal();
+  renderPipeline();
+}
+
+function reRenderAccordion(sleeve) {
+  const id  = sid(sleeve);
+  const acc = document.getElementById('acc-'+id);
+  if (!acc) return;
+  const st  = sortSt[sleeve] || { ci:-1, dir:'asc' };
+  acc.querySelector('.tbl-wrap').innerHTML = tableHTML(sleeve, st.ci, st.dir);
+  wireTable(acc.querySelector('.inv-tbl'));
+  const stats = sleeveStats(sleeve);
+  const vals  = acc.querySelectorAll('.acc-stat-val');
+  if (vals[0]) vals[0].textContent = stats.count;
+  if (vals[1]) vals[1].textContent = fmtM(stats.tc);
+  if (vals[2]) vals[2].textContent = fmtM(stats.ca);
+  if (vals[3]) vals[3].textContent = fmtM(stats.uf);
+  const cvs = document.getElementById('chart-'+id);
+  if (cvs && charts[id]) {
+    charts[id].data.datasets[0].data = [stats.ca, stats.uf||1];
+    charts[id].update();
+  }
+}
+
+function viewInPortfolio(dealId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-portfolio').classList.add('active');
+  const ptfBtn = document.querySelector('.nav-btn[onclick*="\'portfolio\'"]');
+  if (ptfBtn) ptfBtn.classList.add('active');
+  const deal = PIPELINE_DATA.find(d=>d.id===dealId);
+  if (deal) {
+    const acc = document.getElementById('acc-'+sid(deal.sleeve));
+    if (acc && !acc.classList.contains('open')) acc.classList.add('open');
+  }
+  setTimeout(() => {
+    const row = document.querySelector(`tr[data-id="pl_${dealId}"]`);
+    if (!row) return;
+    row.scrollIntoView({ behavior:'smooth', block:'center' });
+    row.classList.add('ptf-hl');
+    setTimeout(() => row.classList.remove('ptf-hl'), 2500);
+  }, 150);
+}
+
+// ── ANALYTICS ────────────────────────────────────────────────────────────────
+let plAnalyticsInit = false;
+let pfAnalyticsInit = false;
+const anCharts = {};
+
+const STAGE_COLORS = { 'Active DD':'#2d6a9f','On Hold':'#e67e22','Legals':'#8e44ad','Closed':'#27ae60','Declined':'#c0392b' };
+const SLEEVE_COLORS = { 'SISS PC':'#2d6a9f','SISS PE':'#1e3a5f','SISS Infra':'#27ae60','Scaling':'#c8a951' };
+
+function toggleAnalytics(which) {
+  const sec   = document.getElementById(which+'-analytics-section');
+  const opening = !sec.classList.contains('open');
+  sec.classList.toggle('open');
+  if (!opening) return;
+  if (which==='pl' && !plAnalyticsInit) { plAnalyticsInit=true; setTimeout(initPlAnalytics, 340); }
+  if (which==='pf' && !pfAnalyticsInit) { pfAnalyticsInit=true; setTimeout(initPfAnalytics, 340); }
+}
+
+// ── PIPELINE ANALYTICS ───────────────────────────────────────────────────────
+function initPlAnalytics() {
+  const all    = PIPELINE_DATA;
+  const active = all.filter(p=>!['Decline','Closed'].includes(p.status));
+  const totalAmt = all.filter(p=>p.status!=='Decline').reduce((s,p)=>s+(p.amount||0),0);
+
+  // Deals closing this quarter
+  const now=new Date(), qm=Math.floor(now.getMonth()/3)*3;
+  const qStart=new Date(now.getFullYear(),qm,1), qEnd=new Date(now.getFullYear(),qm+3,0);
+  const closingQ = all.filter(p=>{ if(!p.estimatedClosingDate) return false;
+    const d=new Date(p.estimatedClosingDate+'T12:00:00'); return d>=qStart&&d<=qEnd; }).length;
+
+  // Pending IC
+  const pendingIC = all.filter(p=>p.status!=='Decline'&&(
+    p.icApprovals?.ic1==='Pending'||(p.requiresIC2==='Yes'&&p.icApprovals?.ic2==='Pending'))).length;
+
+  document.getElementById('pl-an-stats').innerHTML = [
+    ['Total Deals', all.length, ''],
+    ['Total Pipeline ($M)', totalAmt, 'excl. declined'],
+    ['Closing This Quarter', closingQ, ''],
+    ['Pending IC Approvals', pendingIC, ''],
+  ].map(([lbl,val,sub])=>`<div class="an-stat-card"><div class="an-stat-lbl">${lbl}</div><div class="an-stat-val">${val}</div>${sub?`<div class="an-stat-sub">${sub}</div>`:''}</div>`).join('');
+
+  // 1. Funnel by Stage (horizontal bar)
+  const STAGES = ['Active DD','On Hold','Legals','Closed','Declined'];
+  const stageData = STAGES.map(s=>all.filter(p=>p.dealStage===s).length);
+  mkChart('pl-funnel', 'pl-ch-funnel', {
+    type:'bar',
+    data:{ labels:STAGES, datasets:[{ data:stageData, backgroundColor:STAGES.map(s=>STAGE_COLORS[s]), borderRadius:4 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.raw} deal${ctx.raw!==1?'s':''}`}} },
+      scales:{ x:{beginAtZero:true,ticks:{stepSize:1},grid:{color:'#eef0f4'}}, y:{grid:{display:false}} } }
+  });
+
+  // 2. Amounts by Sleeve (horizontal bar)
+  const SL = ['SISS PE','SISS PC','SISS Infra','Scaling'];
+  const slAmt = SL.map(sl=>all.filter(p=>p.sleeve===sl&&p.status!=='Decline').reduce((s,p)=>s+(p.amount||0),0));
+  mkChart('pl-sleeve','pl-ch-sleeve',{
+    type:'bar',
+    data:{ labels:SL, datasets:[{ data:slAmt, backgroundColor:SL.map(s=>SLEEVE_COLORS[s]), borderRadius:4 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>` $${ctx.raw}M`}} },
+      scales:{ x:{beginAtZero:true,grid:{color:'#eef0f4'},ticks:{callback:v=>`$${v}M`}}, y:{grid:{display:false}} } }
+  });
+
+  // 3. IC Approval Status table
+  const icDeals = all.filter(p=>p.status!=='Decline');
+  document.getElementById('pl-ic-tracker').innerHTML = `
+    <table class="ic-tracker">
+      <thead><tr><th>Investment</th><th>Sleeve</th><th>GP</th><th>IC1</th><th>IC2</th></tr></thead>
+      <tbody>${icDeals.map(p=>`<tr>
+        <td>${esc(p.investmentName)}</td><td>${esc(p.sleeve)}</td><td>${esc(p.partnerGP)}</td>
+        <td>${icBadge(p.icApprovals?.ic1||'Pending')}</td>
+        <td>${p.requiresIC2==='Yes'?icBadge(p.icApprovals?.ic2||'Pending'):'<span class="bdg bdg-ic-na">N/A</span>'}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+
+  // 4. Staff Bandwidth (stacked horizontal bar)
+  const bwDeals = all.filter(p=>!['Decline','Closed'].includes(p.status));
+  const bwStaff = STAFF_LIST.filter(s=>bwDeals.some(p=>(p.assignedStaff||[]).includes(s)));
+  const bwStages = ['Active DD','On Hold','Legals'];
+  mkChart('pl-bw','pl-ch-bandwidth',{
+    type:'bar',
+    data:{ labels:bwStaff, datasets:bwStages.map(st=>({
+      label:st,
+      data:bwStaff.map(s=>bwDeals.filter(p=>p.dealStage===st&&(p.assignedStaff||[]).includes(s)).length),
+      backgroundColor:STAGE_COLORS[st], borderRadius:3,
+    })) },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'top',labels:{boxWidth:12,font:{size:11}}}, tooltip:{mode:'index'} },
+      scales:{ x:{stacked:true,beginAtZero:true,ticks:{stepSize:1},grid:{color:'#eef0f4'}}, y:{stacked:true,grid:{display:false}} } }
+  });
+
+  // 5. Staff deal cards
+  document.getElementById('pl-staff-cards').innerHTML =
+    STAFF_LIST.map(s=>{
+      const myDeals = bwDeals.filter(p=>(p.assignedStaff||[]).includes(s));
+      if (!myDeals.length) return '';
+      const items = myDeals.map(p=>`<div class="staff-deal-item">
+        <span class="stage-dot" style="background:${STAGE_COLORS[p.dealStage]||'#888'}"></span>
+        ${esc(p.investmentName)}
+      </div>`).join('');
+      return `<div class="staff-deal-card"><div class="staff-deal-name">${esc(s)}</div>${items}</div>`;
+    }).join('') || '<p style="color:var(--g400);font-style:italic">No active assignments.</p>';
+}
+
+// ── PORTFOLIO ANALYTICS ──────────────────────────────────────────────────────
+function initPfAnalytics() {
+  const pfAll   = DATA.filter(d=>!d._fromPipeline);
+  const topOnly = pfAll.filter(d=>!d.child);
+  const totalTC = topOnly.reduce((s,d)=>s+d.totalCommitment,0);
+  const totalCA = topOnly.reduce((s,d)=>s+d.calledAmount,0);
+  const totalUF = topOnly.reduce((s,d)=>s+d.unfundedAmount,0);
+
+  document.getElementById('pf-an-stats').innerHTML = [
+    ['Total Investments', topOnly.length, ''],
+    ['Total Commitment',  fmtM(totalTC), ''],
+    ['Total Called',      fmtM(totalCA), ''],
+    ['Unfunded',          fmtM(totalUF), ''],
+  ].map(([lbl,val,sub])=>`<div class="an-stat-card"><div class="an-stat-lbl">${lbl}</div><div class="an-stat-val">${val}</div>${sub?`<div class="an-stat-sub">${sub}</div>`:''}</div>`).join('');
+
+  const SL = ['SISS PC','SISS PE','SISS Infra','Scaling'];
+
+  // 1. Total Commitment by Sub-Sleeve
+  mkChart('pf-tc','pf-ch-tc',{
+    type:'bar',
+    data:{ labels:SL, datasets:[{ data:SL.map(sl=>topOnly.filter(d=>d.subSleeve===sl).reduce((s,d)=>s+d.totalCommitment,0)),
+      backgroundColor:SL.map(s=>SLEEVE_COLORS[s]), borderRadius:4 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${fmtM(ctx.raw)}`}} },
+      scales:{ x:{beginAtZero:true,grid:{color:'#eef0f4'},ticks:{callback:v=>fmtM(v)}}, y:{grid:{display:false}} } }
+  });
+
+  // 2. Called vs Unfunded by Sub-Sleeve (stacked)
+  mkChart('pf-cu','pf-ch-cu',{
+    type:'bar',
+    data:{ labels:SL, datasets:[
+      { label:'Called',    data:SL.map(sl=>topOnly.filter(d=>d.subSleeve===sl).reduce((s,d)=>s+d.calledAmount,0)),    backgroundColor:'#2d6a9f', borderRadius:4 },
+      { label:'Unfunded',  data:SL.map(sl=>topOnly.filter(d=>d.subSleeve===sl).reduce((s,d)=>s+d.unfundedAmount,0)),  backgroundColor:'#c8daf0', borderRadius:4 },
+    ] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'top',labels:{boxWidth:12,font:{size:11}}}, tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${fmtM(ctx.raw)}`}} },
+      scales:{ x:{stacked:true,beginAtZero:true,grid:{color:'#eef0f4'},ticks:{callback:v=>fmtM(v)}}, y:{stacked:true,grid:{display:false}} } }
+  });
+
+  // 3. Investment Type donut (Fund / Co-Inv Company / Co-Investment)
+  const typeMap = {};
+  pfAll.forEach(d=>{
+    const t = d.parent ? 'Co-Inv Company' : d.child ? 'Co-Investment' : 'Fund';
+    typeMap[t] = (typeMap[t]||0)+1;
+  });
+  const typeLabels = ['Fund','Co-Inv Company','Co-Investment'].filter(k=>typeMap[k]);
+  mkChart('pf-type','pf-ch-type',{
+    type:'doughnut',
+    data:{ labels:typeLabels, datasets:[{ data:typeLabels.map(k=>typeMap[k]),
+      backgroundColor:['#1e3a5f','#c8a951','#2d6a9f'], borderWidth:2, borderColor:'#fff' }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{ legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.raw}`}} } }
+  });
+
+  // 4. Asset Class donut
+  const assetMap = {};
+  topOnly.forEach(d=>{ const a=d.assetClass||'Other'; assetMap[a]=(assetMap[a]||0)+1; });
+  const assetBGs = { 'Private Equity':'#1e3a5f','Private Credit':'#2d6a9f','Infrastructure':'#27ae60','Private Equity (Growth)':'#c8a951' };
+  const assetLabels = Object.keys(assetMap);
+  mkChart('pf-asset','pf-ch-asset',{
+    type:'doughnut',
+    data:{ labels:assetLabels, datasets:[{ data:assetLabels.map(k=>assetMap[k]),
+      backgroundColor:assetLabels.map(l=>assetBGs[l]||'#888'), borderWidth:2, borderColor:'#fff' }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{ legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.raw}`}} } }
+  });
+}
+
+function mkChart(key, canvasId, config) {
+  if (anCharts[key]) anCharts[key].destroy();
+  const ctx = document.getElementById(canvasId)?.getContext('2d');
+  if (ctx) anCharts[key] = new Chart(ctx, config);
+}
+
+// ── RELATIONSHIP HUB ─────────────────────────────────────────────────────────
+const GP_DATA = [
+  { id:'gp1', firmName:'Apex Capital Partners', strategy:'Growth Equity', location:'New York, NY',
+    website:'apexcapital.com', aum:4.2, fundSize:850, relationshipOwner:'J. Smith',
+    notes:'Strong relationship built since Fund III close in 2022. Excellent co-investment track record and responsive communication. Priority GP for SISS PE growth equity mandate.',
+    contacts:[
+      {id:'gc1',name:'Michael Chen',title:'Managing Partner',email:'mchen@apexcapital.com',phone:'+1 212 555 0101'},
+      {id:'gc2',name:'Sarah Thornton',title:'Head of Investor Relations',email:'sthorton@apexcapital.com',phone:'+1 212 555 0102'},
+    ],
+    interactions:[
+      {id:'gi1',date:'2025-04-10',type:'Call',attendees:['J. Smith'],notes:'Quarterly LP update call. Fund IV deployment at 35% with strong deal flow. Three exits expected H2 2025. Management fees will be reduced for re-up LPs.',followUp:'Request updated fund model and deployment schedule by end of April.'},
+      {id:'gi2',date:'2025-03-15',type:'Meeting',attendees:['J. Smith','A. Kumar'],notes:'LP Advisory Board meeting in NYC. Discussed deployment pace, macro headwinds, and portfolio monitoring. Met new CFO. Very constructive session overall.',followUp:'Follow up on co-investment pipeline shared during the breakout session.'},
+      {id:'gi3',date:'2025-01-22',type:'Email',attendees:['J. Smith'],notes:'Received Fund IV Q4 2024 investor letter. TVPI at 1.12x, DPI 0.08x. On track vs. benchmark. Two portfolio companies flagged for enhanced monitoring.',followUp:''},
+    ],
+  },
+  { id:'gp2', firmName:'Meridian Infrastructure Advisors', strategy:'Core-Plus Infrastructure',
+    location:'London, UK', website:'meridian-infra.com', aum:12.5, fundSize:3200,
+    relationshipOwner:'S. Williams',
+    notes:'New relationship initiated Q3 2024 via LPAC referral. Fund III aligns well with SISS Infra mandate — strong ESG framework and co-investment rights. IC approved Feb 2025.',
+    contacts:[
+      {id:'gc3',name:'James Harrington',title:'Partner & Co-Head',email:'jharrington@meridian-infra.com',phone:'+44 20 7946 0301'},
+      {id:'gc4',name:'Priya Nair',title:'Director, Investor Relations',email:'pnair@meridian-infra.com',phone:'+44 20 7946 0302'},
+    ],
+    interactions:[
+      {id:'gi4',date:'2025-04-02',type:'Meeting',attendees:['S. Williams','L. Chen'],notes:'Final closing meeting in London. Signed subscription documents. Discussed ESG reporting cadence and co-investment notification rights.',followUp:'Confirm wire instructions and target close date with legal team.'},
+      {id:'gi5',date:'2025-02-20',type:'Conference/Annual Meeting',attendees:['S. Williams'],notes:'Attended Meridian Annual Investor Day in London. Portfolio deep dive across 14 assets — average remaining tenor 11 years. Management highlighted strong tailwinds in renewables and digital infrastructure.',followUp:'Share ESG questionnaire results with legal. Request asset-level data room access.'},
+      {id:'gi6',date:'2024-11-14',type:'Call',attendees:['S. Williams','T. Davis'],notes:'Initial due diligence call following LPAC referral. Reviewed Fund III strategy, team composition, and early portfolio. Strong first impression — added to priority tracking list.',followUp:'Schedule in-person due diligence visit to London office.'},
+    ],
+  },
+  { id:'gp3', firmName:'Carlyle Group', strategy:'Multi-Strategy Private Equity',
+    location:'Washington, D.C.', website:'carlyle.com', aum:382.0, fundSize:14800,
+    relationshipOwner:'L. Chen',
+    notes:'Long-standing LP relationship since Fund V (2015). Cornerstone LP in Partners VIII. High quality reporting, proactive communication, and strong LPAC participation. Board seat secured on Fund VIII LPAC.',
+    contacts:[
+      {id:'gc5',name:'Robert Finch',title:'Managing Director, LP Relations',email:'rfinch@carlyle.com',phone:'+1 202 729 5501'},
+      {id:'gc6',name:'Diana Lowe',title:'VP, Client Services',email:'dlowe@carlyle.com',phone:'+1 202 729 5502'},
+      {id:'gc7',name:'Thomas Park',title:'Senior Advisor',email:'tpark@carlyle.com',phone:'+1 202 729 5503'},
+    ],
+    interactions:[
+      {id:'gi7',date:'2025-04-28',type:'Conference/Annual Meeting',attendees:['L. Chen','J. Smith'],notes:'Carlyle Annual LP Meeting in Washington D.C. Keynote by co-CEOs on macro outlook. Partners VIII at 1.28x TVPI; two full exits expected Q3 2025. Fund IX fundraise announced — target $22B.',followUp:'Discuss Fund IX participation at next IC. Review most-favored-nation side letter terms.'},
+      {id:'gi8',date:'2025-02-11',type:'Call',attendees:['L. Chen'],notes:'LPAC quarterly call. Reviewed four new portfolio add-on acquisitions. Fund VIII deployment 78% complete. $3.2B distributions to LPs made in January 2025.',followUp:'Request updated exposure report from back-office. Flag for compliance review.'},
+    ],
+  },
+];
+
+let activeGpId  = null;
+let cntGpId     = null;
+let editCntId   = null;
+let intGpId     = null;
+let rhFilters   = { owner:'', strategy:'', sleeve:'' };
+let gpIdSeq     = 10;
+let cntIdSeq    = 20;
+let intIdSeq    = 20;
+
+// ── Linked deal helpers ───────────────────────────────────────────────────────
+function getLinkedDeals(gpId) {
+  const gp = GP_DATA.find(g=>g.id===gpId);
+  if (!gp) return [];
+  const pf = DATA.filter(d=>d.gpName===gp.firmName && !d.child && !d._fromPipeline)
+               .map(d=>({...d, _src:'portfolio'}));
+  const pl = PIPELINE_DATA.filter(p=>p.partnerGP===gp.firmName)
+               .map(p=>({...p, _src:'pipeline'}));
+  return [...pf, ...pl];
+}
+function lastIntDate(gp) {
+  if (!gp.interactions?.length) return null;
+  return [...gp.interactions].sort((a,b)=>b.date.localeCompare(a.date))[0].date;
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+function initRH() {
+  const ownerSel = document.getElementById('rh-f-owner');
+  STAFF_LIST.forEach(s=>{ const o=document.createElement('option'); o.value=o.textContent=s; ownerSel.appendChild(o); });
+  const stratSel = document.getElementById('rh-f-strategy');
+  [...new Set(GP_DATA.map(g=>g.strategy))].forEach(s=>{ const o=document.createElement('option'); o.value=o.textContent=s; stratSel.appendChild(o); });
+  // Populate Add-GP owner select
+  const gpOwnerSel = document.getElementById('gp-f-owner');
+  STAFF_LIST.forEach(s=>{ const o=document.createElement('option'); o.value=o.textContent=s; gpOwnerSel.appendChild(o); });
+  // Populate interaction staff checkboxes
+  const intStaff = document.getElementById('int-staff-checks');
+  STAFF_LIST.forEach(s=>{ const lbl=document.createElement('label'); lbl.className='staff-chk'; lbl.innerHTML=`<input type="checkbox" value="${esc(s)}"> ${esc(s)}`; intStaff.appendChild(lbl); });
+  renderGPCards();
+}
+
+function applyRHFilters() {
+  rhFilters.owner    = document.getElementById('rh-f-owner').value;
+  rhFilters.strategy = document.getElementById('rh-f-strategy').value;
+  rhFilters.sleeve   = document.getElementById('rh-f-sleeve').value;
+  renderGPCards();
+}
+
+// ── Cards ────────────────────────────────────────────────────────────────────
+function renderGPCards() {
+  const f = rhFilters;
+  const gps = GP_DATA.filter(gp => {
+    if (f.owner    && gp.relationshipOwner !== f.owner)    return false;
+    if (f.strategy && gp.strategy          !== f.strategy) return false;
+    if (f.sleeve) {
+      const sleeves = getLinkedDeals(gp.id).map(d=>d.subSleeve||d.sleeve).filter(Boolean);
+      if (!sleeves.includes(f.sleeve)) return false;
+    }
+    return true;
+  });
+  const container = document.getElementById('rh-cards');
+  container.innerHTML = gps.map(gp=>buildGPCard(gp)).join('') ||
+    '<p style="color:var(--g400);font-style:italic;padding:20px">No GPs match the current filters.</p>';
+  container.querySelectorAll('.gp-card').forEach(card=>{
+    card.addEventListener('click', ()=>openGPProfile(card.dataset.gpId));
+  });
+}
+
+function buildGPCard(gp) {
+  const initials = gp.firmName.split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  const deals    = getLinkedDeals(gp.id);
+  const active   = deals.filter(d=>d._src==='portfolio'||['Active','Monitor','Approved'].includes(d.status));
+  const lastDate = lastIntDate(gp);
+  return `<div class="gp-card" data-gp-id="${gp.id}">
+  <div class="gp-card-hdr">
+    <div class="gp-avatar">${esc(initials)}</div>
+    <div><div class="gp-firm">${esc(gp.firmName)}</div><div class="gp-strategy-tag">${esc(gp.strategy)}</div></div>
+  </div>
+  <div class="gp-card-meta">
+    <div class="gp-meta-row"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--g400)" stroke-width="2.2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${esc(gp.location)}</div>
+    <div class="gp-meta-row"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--g400)" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>${esc(gp.relationshipOwner)}</div>
+    ${gp.aum?`<div class="gp-meta-row" style="color:var(--g400)">AUM: <strong style="color:var(--g700)">$${gp.aum}B</strong></div>`:''}
+  </div>
+  <div class="gp-card-footer">
+    <span>Last: ${lastDate?fmtDate(lastDate):'No interactions yet'}</span>
+    <span class="gp-deal-count">${active.length} deal${active.length!==1?'s':''}</span>
+  </div>
+</div>`;
+}
+
+// ── Profile panel ─────────────────────────────────────────────────────────────
+function openGPProfile(gpId) {
+  activeGpId = gpId;
+  const gp = GP_DATA.find(g=>g.id===gpId);
+  if (!gp) return;
+  renderGPProfile(gp);
+  document.getElementById('gp-profile').classList.add('open');
+  document.getElementById('rh-overlay').classList.add('on');
+}
+function closeGPProfile() {
+  document.getElementById('gp-profile').classList.remove('open');
+  document.getElementById('rh-overlay').classList.remove('on');
+  activeGpId = null;
+}
+function switchProfileTab(tab) {
+  document.querySelectorAll('.profile-tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===tab));
+  document.querySelectorAll('.profile-tab-content').forEach(c=>c.classList.toggle('active', c.dataset.tab===tab));
+}
+function renderGPProfile(gp) {
+  const initials = gp.firmName.split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  document.getElementById('gp-avatar-lg').textContent  = initials;
+  document.getElementById('gp-profile-firm').textContent = gp.firmName;
+  document.getElementById('gp-profile-sub').textContent  = `${gp.strategy} · ${gp.location}`;
+  document.getElementById('gp-profile-meta').innerHTML  = [
+    gp.aum      ? `<span class="gp-meta-chip">AUM: <span>$${gp.aum}B</span></span>` : '',
+    gp.fundSize ? `<span class="gp-meta-chip">Fund: <span>$${gp.fundSize}M</span></span>` : '',
+    gp.website  ? `<span class="gp-meta-chip">Web: <span>${esc(gp.website)}</span></span>` : '',
+    `<span class="gp-meta-chip">Owner: <span>${esc(gp.relationshipOwner)}</span></span>`,
+  ].filter(Boolean).join('');
+  renderProfileOverview(gp);
+  renderProfileDeals(gp);
+  renderProfileContacts(gp);
+  renderProfileTimeline(gp);
+  switchProfileTab('overview');
+}
+
+function renderProfileOverview(gp) {
+  document.getElementById('ptc-overview').innerHTML =
+    `<div class="profile-section-title">Overview Notes</div>
+     <div class="overview-notes">${esc(gp.notes||'')||'<em style="color:var(--g400)">No notes added.</em>'}</div>`;
+}
+
+function renderProfileDeals(gp) {
+  const deals = getLinkedDeals(gp.id);
+  const rows  = deals.map(d=>{
+    const isPl = d._src==='pipeline';
+    const tc   = isPl ? fmtM((d.amount||0)*1e6) : fmtM(d.totalCommitment);
+    const stBdg= isPl ? statusBadge(d.status) : `<span class="bdg bdg-approved">Portfolio</span>`;
+    return `<tr>
+      <td><span class="src-tag ${isPl?'src-pipeline':'src-portfolio'}">${isPl?'Pipeline':'Portfolio'}</span> ${esc(d.investmentName)}</td>
+      <td>${esc(isPl?d.sleeve:d.subSleeve)}</td><td>${stBdg}</td><td style="text-align:right">${tc}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('ptc-deals').innerHTML = deals.length
+    ? `<div class="profile-section-title">Linked Investments (${deals.length})</div>
+       <table class="linked-deals-tbl">
+         <thead><tr><th>Investment</th><th>Sleeve</th><th>Status</th><th style="text-align:right">Commitment</th></tr></thead>
+         <tbody>${rows}</tbody>
+       </table>`
+    : '<p style="color:var(--g400);font-style:italic;text-align:center;padding:24px">No linked investments found.</p>';
+}
+
+function renderProfileContacts(gp) {
+  const list = (gp.contacts||[]).map(c=>{
+    const ini = c.name.split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+    return `<div class="contact-item">
+      <div class="contact-avatar">${esc(ini)}</div>
+      <div class="contact-info">
+        <div class="contact-name">${esc(c.name)}</div>
+        <div class="contact-title">${esc(c.title)}</div>
+        <div class="contact-details">
+          ${c.email?`<a href="mailto:${esc(c.email)}" style="color:var(--blue)">${esc(c.email)}</a>`:''}
+          ${c.phone?`<span>${esc(c.phone)}</span>`:''}
+        </div>
+      </div>
+      <div class="contact-actions">
+        <button class="btn-sm btn-sm-ghost" onclick="openEditContact('${gp.id}','${c.id}')">Edit</button>
+        <button class="btn-sm btn-sm-danger" onclick="removeContact('${gp.id}','${c.id}')">Remove</button>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('ptc-contacts').innerHTML =
+    `<div class="profile-section-title">Contacts (${gp.contacts?.length||0})
+       <button class="btn-sm" onclick="openAddContact('${gp.id}')">+ Add Contact</button>
+     </div>
+     <div class="contact-list">${list||'<p style="color:var(--g400);font-style:italic">No contacts on file.</p>'}</div>`;
+}
+
+function renderProfileTimeline(gp) {
+  const iconCls = {'Call':'tl-call','Meeting':'tl-meeting','Conference/Annual Meeting':'tl-conference','Email':'tl-email'};
+  const iconLbl = {'Call':'C','Meeting':'M','Conference/Annual Meeting':'A','Email':'E'};
+  const sorted  = [...(gp.interactions||[])].sort((a,b)=>b.date.localeCompare(a.date));
+  const items   = sorted.map(i=>`
+    <div class="tl-item" id="tl-${i.id}">
+      <div class="tl-icon ${iconCls[i.type]||'tl-call'}">${iconLbl[i.type]||'?'}</div>
+      <div class="tl-body">
+        <div class="tl-top"><span class="tl-type">${esc(i.type)}</span><span class="tl-date">${fmtDate(i.date)}</span></div>
+        ${i.attendees?.length?`<div class="tl-attendees">&#128100; ${i.attendees.map(a=>esc(a)).join(', ')}</div>`:''}
+        <div class="tl-notes-text">${esc(i.notes)}</div>
+        ${i.followUp?`<div class="tl-followup">&#8625; Follow-up: ${esc(i.followUp)}</div>`:''}
+      </div>
+    </div>`).join('');
+  document.getElementById('ptc-timeline').innerHTML =
+    `<div class="profile-section-title">Timeline (${sorted.length})
+       <button class="btn-sm" onclick="openAddInteraction('${gp.id}')">+ Add Interaction</button>
+     </div>
+     <div class="tl-list">${items||'<p class="tl-no-items">No interactions recorded yet.</p>'}</div>`;
+}
+
+// ── Add GP ────────────────────────────────────────────────────────────────────
+function openAddGPModal() {
+  ['gp-f-name','gp-f-strategy','gp-f-location','gp-f-website','gp-f-aum','gp-f-fundsize','gp-f-notes'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('gp-f-owner').value = STAFF_LIST[0]||'';
+  document.getElementById('add-gp-modal').style.display='flex';
+}
+function closeAddGPModal() { document.getElementById('add-gp-modal').style.display='none'; }
+function saveNewGP() {
+  const g=id=>document.getElementById(id)?.value?.trim()||'';
+  const name=g('gp-f-name');
+  if (!name){ alert('Firm Name is required.'); return; }
+  GP_DATA.push({ id:'gp'+(++gpIdSeq), firmName:name, strategy:g('gp-f-strategy'), location:g('gp-f-location'),
+    website:g('gp-f-website'), aum:parseFloat(g('gp-f-aum'))||0, fundSize:parseFloat(g('gp-f-fundsize'))||0,
+    relationshipOwner:g('gp-f-owner'), notes:g('gp-f-notes'), contacts:[], interactions:[] });
+  closeAddGPModal(); renderGPCards();
+}
+
+// ── Contacts ─────────────────────────────────────────────────────────────────
+function openAddContact(gpId) {
+  cntGpId=gpId; editCntId=null;
+  document.getElementById('contact-modal-title').textContent='Add Contact';
+  ['cnt-f-name','cnt-f-title','cnt-f-email','cnt-f-phone'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('add-contact-modal').style.display='flex';
+}
+function openEditContact(gpId,cntId) {
+  cntGpId=gpId; editCntId=cntId;
+  document.getElementById('contact-modal-title').textContent='Edit Contact';
+  const gp=GP_DATA.find(g=>g.id===gpId);
+  const cnt=gp?.contacts?.find(c=>c.id===cntId);
+  if (!cnt) return;
+  document.getElementById('cnt-f-name').value =cnt.name||'';
+  document.getElementById('cnt-f-title').value=cnt.title||'';
+  document.getElementById('cnt-f-email').value=cnt.email||'';
+  document.getElementById('cnt-f-phone').value=cnt.phone||'';
+  document.getElementById('add-contact-modal').style.display='flex';
+}
+function closeContactModal() { document.getElementById('add-contact-modal').style.display='none'; }
+function saveContact() {
+  const g=id=>document.getElementById(id)?.value?.trim()||'';
+  const name=g('cnt-f-name');
+  if (!name){ alert('Name is required.'); return; }
+  const gp=GP_DATA.find(g=>g.id===cntGpId);
+  if (!gp) return;
+  if (!gp.contacts) gp.contacts=[];
+  if (editCntId) {
+    const idx=gp.contacts.findIndex(c=>c.id===editCntId);
+    if (idx>=0) gp.contacts[idx]={...gp.contacts[idx],name,title:g('cnt-f-title'),email:g('cnt-f-email'),phone:g('cnt-f-phone')};
+  } else {
+    gp.contacts.push({id:'gc'+(++cntIdSeq),name,title:g('cnt-f-title'),email:g('cnt-f-email'),phone:g('cnt-f-phone')});
+  }
+  closeContactModal(); renderProfileContacts(gp);
+}
+function removeContact(gpId,cntId) {
+  const gp=GP_DATA.find(g=>g.id===gpId);
+  if (!gp) return;
+  if (!confirm(`Remove this contact?`)) return;
+  gp.contacts=(gp.contacts||[]).filter(c=>c.id!==cntId);
+  renderProfileContacts(gp);
+}
+
+// ── Interactions ─────────────────────────────────────────────────────────────
+function openAddInteraction(gpId) {
+  intGpId=gpId;
+  document.getElementById('int-f-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('int-f-type').value='Call';
+  document.getElementById('int-f-notes').value='';
+  document.getElementById('int-f-followup').value='';
+  document.querySelectorAll('#int-staff-checks input').forEach(cb=>{cb.checked=false;});
+  document.getElementById('add-interaction-modal').style.display='flex';
+}
+function closeInteractionModal() { document.getElementById('add-interaction-modal').style.display='none'; }
+function saveInteraction() {
+  const g=id=>document.getElementById(id)?.value?.trim()||'';
+  const date=g('int-f-date');
+  if (!date){ alert('Date is required.'); return; }
+  const gp=GP_DATA.find(g=>g.id===intGpId);
+  if (!gp) return;
+  if (!gp.interactions) gp.interactions=[];
+  const attendees=[...document.querySelectorAll('#int-staff-checks input:checked')].map(cb=>cb.value);
+  gp.interactions.push({id:'gi'+(++intIdSeq),date,type:g('int-f-type')||'Call',attendees,notes:g('int-f-notes'),followUp:g('int-f-followup')});
+  closeInteractionModal(); renderProfileTimeline(gp); renderGPCards();
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+function rhSearch(q) {
+  const resultsEl=document.getElementById('rh-search-results');
+  if (!q.trim()) { resultsEl.style.display='none'; renderGPCards(); return; }
+  const ql=q.toLowerCase();
+  const hits=[];
+  GP_DATA.forEach(gp=>{
+    if ([gp.firmName,gp.strategy,gp.location].join(' ').toLowerCase().includes(ql))
+      hits.push({gpId:gp.id,gpName:gp.firmName,tab:'overview',label:'Firm match',snip:rhSnip(`${gp.firmName} · ${gp.strategy} · ${gp.location}`,ql)});
+    if (gp.notes?.toLowerCase().includes(ql))
+      hits.push({gpId:gp.id,gpName:gp.firmName,tab:'overview',label:'Overview note',snip:rhSnip(gp.notes,ql)});
+    (gp.contacts||[]).forEach(c=>{
+      if ([c.name,c.title,c.email].join(' ').toLowerCase().includes(ql))
+        hits.push({gpId:gp.id,gpName:gp.firmName,tab:'contacts',label:`Contact: ${c.name}`,snip:rhSnip([c.name,c.title,c.email].join(' · '),ql)});
+    });
+    (gp.interactions||[]).forEach(i=>{
+      if ([i.notes,i.followUp,i.type].join(' ').toLowerCase().includes(ql))
+        hits.push({gpId:gp.id,gpName:gp.firmName,tab:'timeline',intId:i.id,label:`${i.type} · ${fmtDate(i.date)}`,snip:rhSnip(i.notes,ql)});
+    });
+  });
+  if (!hits.length) {
+    resultsEl.innerHTML=`<div class="rh-no-res">No results for "<strong>${esc(q)}</strong>".</div>`;
+  } else {
+    resultsEl.innerHTML=hits.map((h,ri)=>`
+      <div class="rh-res-item" data-ri="${ri}">
+        <div class="rh-res-gp">${esc(h.gpName)}</div>
+        <div class="rh-res-ctx">${esc(h.label)}</div>
+        <div class="rh-res-snip">${h.snip}</div>
+      </div>`).join('');
+    resultsEl.querySelectorAll('.rh-res-item').forEach((el,ri)=>{
+      el.addEventListener('click',()=>{
+        const h=hits[ri];
+        openGPProfile(h.gpId);
+        setTimeout(()=>{
+          switchProfileTab(h.tab);
+          if (h.intId){ const tl=document.getElementById('tl-'+h.intId); if(tl) tl.scrollIntoView({behavior:'smooth',block:'center'}); }
+        },220);
+        resultsEl.style.display='none';
+      });
+    });
+  }
+  resultsEl.style.display='block';
+}
+function rhSnip(text,q) {
+  if (!text) return '—';
+  const idx=text.toLowerCase().indexOf(q); const start=Math.max(0,idx-35);
+  let ex=(start>0?'…':'')+text.slice(start,start+130)+(start+130<text.length?'…':'');
+  return esc(ex).replace(new RegExp(esc(q),'gi'),m=>`<mark>${m}</mark>`);
+}
+
+// ── Tearsheet ────────────────────────────────────────────────────────────────
+function generateTearsheet(gpId) {
+  const gp=GP_DATA.find(g=>g.id===gpId); if (!gp) return;
+  const deals=getLinkedDeals(gpId);
+  const ints=[...(gp.interactions||[])].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
+  const fups=(gp.interactions||[]).filter(i=>i.followUp).map(i=>({date:i.date,fu:i.followUp}));
+  const dealRows=deals.map(d=>{const isPl=d._src==='pipeline'; return `<tr>
+    <td><span style="font-size:10px;padding:1px 6px;border-radius:8px;font-weight:700;background:${isPl?'#fef3c7':'#dbeafe'};color:${isPl?'#92400e':'#1d4ed8'}">${isPl?'Pipeline':'Portfolio'}</span> ${esc(d.investmentName)}</td>
+    <td>${esc(isPl?d.sleeve:d.subSleeve)}</td><td>${esc(isPl?d.status:'Active')}</td>
+    <td style="text-align:right">${fmtM(isPl?(d.amount||0)*1e6:d.totalCommitment)}</td></tr>`;}).join('');
+  const intBlocks=ints.map(i=>`
+    <div style="border-left:3px solid #1e3a5f;padding:10px 14px;margin-bottom:12px;background:#f8f9fb;border-radius:0 6px 6px 0">
+      <div style="display:flex;gap:12px;margin-bottom:5px">
+        <strong style="font-size:13px;color:#1e3a5f">${esc(i.type)}</strong>
+        <span style="font-size:11px;color:#9aa3b0">${fmtDate(i.date)}${i.attendees?.length?' · '+i.attendees.map(a=>esc(a)).join(', '):''}
+        </span>
+      </div>
+      <div style="font-size:12px;color:#4a5260;line-height:1.6">${esc(i.notes)}</div>
+      ${i.followUp?`<div style="font-size:11px;color:#b45309;background:#fff7ed;padding:4px 8px;border-radius:4px;margin-top:7px;display:inline-block">Follow-up: ${esc(i.followUp)}</div>`:''}
+    </div>`).join('');
+  const fupItems=fups.map(f=>`<li style="padding:7px 0;border-bottom:1px solid #f0f2f6;font-size:12px"><div style="font-size:10px;color:#9aa3b0;margin-bottom:2px">${fmtDate(f.date)}</div>${esc(f.fu)}</li>`).join('');
+  const html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Tearsheet — ${esc(gp.firmName)}</title>
+<style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:#1a202c;margin:0;padding:0}
+.pg{max-width:860px;margin:0 auto;padding:40px 48px}
+.top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;padding-bottom:16px;border-bottom:3px solid #1e3a5f}
+.brand{font-size:11px;font-weight:800;letter-spacing:2px;color:#1e3a5f;text-transform:uppercase}
+h1{font-size:26px;font-weight:800;color:#1e3a5f;margin:0}
+.sub{font-size:14px;color:#4a5260;margin-top:4px}
+.mrow{display:flex;gap:28px;margin-top:14px;flex-wrap:wrap}
+.mi{display:flex;flex-direction:column}
+.ml{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#9aa3b0;margin-bottom:2px}
+.mv{font-size:13px;font-weight:600;color:#1e3a5f}
+h2{font-size:14px;font-weight:700;color:#1e3a5f;border-bottom:1px solid #dde2ea;padding-bottom:6px;margin:28px 0 12px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#f0f2f6;text-align:left;padding:7px 10px;font-size:11px;font-weight:600;color:#4a5260;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #dde2ea}
+td{padding:8px 10px;border-bottom:1px solid #f0f2f6;vertical-align:top}
+tr:last-child td{border-bottom:none}
+.fbar{margin-top:36px;padding-top:16px;border-top:1px solid #dde2ea;display:flex;gap:10px}
+.bp{background:#1e3a5f;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}
+.bc{background:transparent;border:1.5px solid #dde2ea;padding:10px 24px;border-radius:6px;font-size:13px;cursor:pointer;color:#4a5260}
+@media print{.fbar{display:none!important}body{font-size:11px}.pg{padding:20px 28px}}
+</style></head><body><div class="pg">
+<div class="top"><div class="brand">SISS Investment Dashboard</div><div style="font-size:11px;color:#9aa3b0">Generated: ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div></div>
+<div style="margin-bottom:24px"><h1>${esc(gp.firmName)}</h1><div class="sub">${esc(gp.strategy)} · ${esc(gp.location)}</div>
+<div class="mrow">
+  ${gp.aum?`<div class="mi"><span class="ml">AUM</span><span class="mv">$${gp.aum}B</span></div>`:''}
+  ${gp.fundSize?`<div class="mi"><span class="ml">Current Fund</span><span class="mv">$${gp.fundSize}M</span></div>`:''}
+  ${gp.website?`<div class="mi"><span class="ml">Website</span><span class="mv">${esc(gp.website)}</span></div>`:''}
+  <div class="mi"><span class="ml">Relationship Owner</span><span class="mv">${esc(gp.relationshipOwner)}</span></div>
+</div></div>
+<h2>Key Contacts</h2>
+${(gp.contacts||[]).length?`<table><thead><tr><th>Name</th><th>Title</th><th>Email</th><th>Phone</th></tr></thead><tbody>${(gp.contacts||[]).map(c=>`<tr><td><strong>${esc(c.name)}</strong></td><td>${esc(c.title)}</td><td>${esc(c.email)}</td><td>${esc(c.phone)}</td></tr>`).join('')}</tbody></table>`:'<p style="color:#9aa3b0;font-style:italic">No contacts on file.</p>'}
+<h2>Linked Investments (${deals.length})</h2>
+${deals.length?`<table><thead><tr><th>Source</th><th>Investment</th><th>Sleeve</th><th>Status</th><th style="text-align:right">Commitment</th></tr></thead><tbody>${dealRows}</tbody></table>`:'<p style="color:#9aa3b0;font-style:italic">No linked investments.</p>'}
+<h2>Recent Interactions (Last ${ints.length})</h2>
+${ints.length?intBlocks:'<p style="color:#9aa3b0;font-style:italic">No interactions recorded.</p>'}
+<h2>Open Follow-Up Items (${fups.length})</h2>
+${fups.length?`<ul style="list-style:none;padding:0;margin:0">${fupItems}</ul>`:'<p style="color:#9aa3b0;font-style:italic">No open follow-up items.</p>'}
+<div class="fbar">
+  <button class="bp" onclick="window.print()">Print / Save as PDF</button>
+  <button class="bc" onclick="(()=>{const h=document.querySelector('.pg').innerHTML;navigator.clipboard?.writeText('<html><body>'+h+'</body></html>').catch(()=>{const t=document.createElement('textarea');t.value=h;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove()});alert('HTML copied to clipboard — paste into Word.');})()">Copy HTML for Word</button>
+</div></div></body></html>`;
+  const w=window.open('','_blank'); w.document.write(html); w.document.close();
+}
+
+// ── MANAGE STAFF ─────────────────────────────────────────────────────────────
+let editStaffId = null;
+let stIdSeq     = 20;
+
+function staffDN(s)       { return s.firstName[0]+'. '+s.lastName; }
+function staffInitials(s) { return (s.firstName[0]+(s.lastName[0]||'')).toUpperCase(); }
+
+function titleBadgeCls(title) {
+  if (title.includes('Managing Director')||title.includes('Partner')) return 'md';
+  if (title.includes('Director')) return 'dir';
+  if (title.includes('Senior Associate')||title.includes('VP')) return 'sa';
+  if (title.includes('Associate')) return 'assoc';
+  return 'analyst';
+}
+
+function staffStats(s) {
+  const dn = staffDN(s);
+  const pl = PIPELINE_DATA.filter(p=>p.status!=='Decline'&&(p.assignedStaff||[]).includes(dn)).length;
+  const pf = DATA.filter(d=>!d._fromPipeline&&!d.child);
+  return {
+    pl,
+    primary:   pf.filter(d=>d.primary===dn).length,
+    secondary: pf.filter(d=>d.secondary===dn).length,
+    lead:      pf.filter(d=>d.leadReviewer===dn).length,
+  };
+}
+
+function initMS() { renderMSCards(); }
+
+function renderMSCards() {
+  const activePlDeals = PIPELINE_DATA.filter(p=>!['Decline','Closed'].includes(p.status)).length;
+  const pfInvs        = DATA.filter(d=>!d._fromPipeline&&!d.child).length;
+  document.getElementById('ms-summary').innerHTML = [
+    ['Team Members',       STAFF_DATA.length],
+    ['Active Pipeline Deals', activePlDeals],
+    ['Portfolio Investments',  pfInvs],
+  ].map(([l,v])=>`<div class="ms-sum-card"><div class="ms-sum-lbl">${l}</div><div class="ms-sum-val">${v}</div></div>`).join('');
+
+  document.getElementById('ms-cards').innerHTML =
+    STAFF_DATA.map(s=>buildMSCard(s)).join('') ||
+    '<p style="color:var(--g400);font-style:italic;padding:20px">No staff members added yet.</p>';
+}
+
+function buildMSCard(s) {
+  const st = staffStats(s);
+  const badgeCls = titleBadgeCls(s.title);
+  return `<div class="ms-card" id="ms-card-${s.id}">
+  <div class="ms-card-hdr">
+    <div class="ms-avatar">${staffInitials(s)}</div>
+    <div>
+      <div class="ms-name">${esc(s.firstName+' '+s.lastName)}</div>
+      <div style="margin-top:4px"><span class="ms-title-badge ${badgeCls}">${esc(s.title)}</span></div>
+      <div class="ms-email-tag">${esc(s.email)}</div>
+    </div>
+  </div>
+  <div class="ms-stats">
+    <div class="ms-stat"><div class="ms-stat-val">${st.pl}</div><div class="ms-stat-lbl">Pipeline</div></div>
+    <div class="ms-stat"><div class="ms-stat-val">${st.primary}</div><div class="ms-stat-lbl">Primary</div></div>
+    <div class="ms-stat"><div class="ms-stat-val">${st.secondary}</div><div class="ms-stat-lbl">Secondary</div></div>
+    <div class="ms-stat"><div class="ms-stat-val">${st.lead}</div><div class="ms-stat-lbl">Lead/Rev.</div></div>
+  </div>
+  <div class="ms-card-actions">
+    <button class="btn-sm" onclick="openStaffProfile('${s.id}')">View Assignments</button>
+    <button class="btn-sm btn-sm-ghost" onclick="openEditStaff('${s.id}')">Edit</button>
+    <button class="btn-sm btn-sm-danger" onclick="removeStaff('${s.id}')">Remove</button>
+  </div>
+</div>`;
+}
+
+// ── Staff profile (assignments view) ─────────────────────────────────────────
+function openStaffProfile(staffId) {
+  const s = STAFF_DATA.find(x=>x.id===staffId);
+  if (!s) return;
+  const dn = staffDN(s);
+  document.getElementById('sp-name').textContent = s.firstName+' '+s.lastName;
+  document.getElementById('sp-sub').textContent  = s.title+' · '+s.email;
+
+  // Pipeline assignments
+  const plDeals = PIPELINE_DATA.filter(p=>(p.assignedStaff||[]).includes(dn));
+  const plRows  = plDeals.length
+    ? plDeals.map(p=>`<tr>
+        <td>${esc(p.investmentName)}</td><td>${esc(p.sleeve)}</td>
+        <td>${statusBadge(p.status)}</td><td>${stageBadge(p.dealStage)}</td>
+        <td>${esc(p.partnerGP)}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="5" style="color:var(--g400);font-style:italic;text-align:center;padding:12px">No pipeline assignments.</td></tr>`;
+
+  // Portfolio assignments
+  const pf = DATA.filter(d=>!d._fromPipeline&&!d.child);
+  const pfAssign = pf.filter(d=>d.leadReviewer===dn||d.primary===dn||d.secondary===dn);
+  const pfRows   = pfAssign.length
+    ? pfAssign.map(d=>{
+        const roles=[d.leadReviewer===dn?'Lead/Reviewer':'',d.primary===dn?'Primary':'',d.secondary===dn?'Secondary':''].filter(Boolean).join(', ');
+        return `<tr><td>${esc(d.investmentName)}</td><td>${esc(d.subSleeve)}</td><td>${esc(d.gpName)}</td><td>${esc(roles)}</td></tr>`;
+      }).join('')
+    : `<tr><td colspan="4" style="color:var(--g400);font-style:italic;text-align:center;padding:12px">No portfolio assignments.</td></tr>`;
+
+  document.getElementById('sp-body').innerHTML = `
+    <div class="modal-section" style="margin-top:0;padding-top:0;border-top:none;margin-bottom:10px">Pipeline Deals (${plDeals.length})</div>
+    <table class="linked-deals-tbl" style="margin-bottom:20px">
+      <thead><tr><th>Investment</th><th>Sleeve</th><th>Status</th><th>Stage</th><th>Partner / GP</th></tr></thead>
+      <tbody>${plRows}</tbody>
+    </table>
+    <div class="modal-section" style="margin-bottom:10px">Portfolio Investments (${pfAssign.length})</div>
+    <table class="linked-deals-tbl">
+      <thead><tr><th>Investment</th><th>Sub-Sleeve</th><th>GP Name</th><th>Role(s)</th></tr></thead>
+      <tbody>${pfRows}</tbody>
+    </table>`;
+
+  document.getElementById('staff-profile-modal').style.display='flex';
+}
+function closeStaffProfile() { document.getElementById('staff-profile-modal').style.display='none'; }
+
+// ── Add / Edit staff ──────────────────────────────────────────────────────────
+function openAddStaffModal() {
+  editStaffId=null;
+  document.getElementById('sf-modal-title').textContent='Add New Staff Member';
+  ['sf-first','sf-last','sf-email'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('sf-title-sel').value='Associate';
+  document.getElementById('staff-form-modal').style.display='flex';
+}
+function openEditStaff(staffId) {
+  editStaffId=staffId;
+  const s=STAFF_DATA.find(x=>x.id===staffId);
+  if (!s) return;
+  document.getElementById('sf-modal-title').textContent='Edit Staff Member';
+  document.getElementById('sf-first').value    = s.firstName;
+  document.getElementById('sf-last').value     = s.lastName;
+  document.getElementById('sf-title-sel').value= s.title;
+  document.getElementById('sf-email').value    = s.email;
+  document.getElementById('staff-form-modal').style.display='flex';
+}
+function closeStaffForm() { document.getElementById('staff-form-modal').style.display='none'; }
+
+function saveStaff() {
+  const g = id=>document.getElementById(id)?.value?.trim()||'';
+  const firstName=g('sf-first'), lastName=g('sf-last');
+  if (!firstName||!lastName) { alert('First and Last name are required.'); return; }
+  if (editStaffId) {
+    const s=STAFF_DATA.find(x=>x.id===editStaffId);
+    if (s) { s.firstName=firstName; s.lastName=lastName; s.title=g('sf-title-sel'); s.email=g('sf-email'); }
+  } else {
+    STAFF_DATA.push({ id:'st'+(++stIdSeq), firstName, lastName, title:g('sf-title-sel'), email:g('sf-email') });
+  }
+  refreshStaffDropdowns();
+  closeStaffForm();
+  renderMSCards();
+}
+
+// ── Remove staff ──────────────────────────────────────────────────────────────
+function removeStaff(staffId) {
+  const s=STAFF_DATA.find(x=>x.id===staffId);
+  if (!s) return;
+  const dn=staffDN(s);
+  const plCount=PIPELINE_DATA.filter(p=>p.status!=='Decline'&&(p.assignedStaff||[]).includes(dn)).length;
+  const pfCount=DATA.filter(d=>!d._fromPipeline&&!d.child&&(d.primary===dn||d.secondary===dn||d.leadReviewer===dn)).length;
+  let msg=`Remove ${s.firstName} ${s.lastName} from the team roster?`;
+  if (plCount||pfCount)
+    msg+=`\n\nWarning: This person is currently assigned to ${plCount} active pipeline deal(s) and ${pfCount} portfolio investment(s). Removing them from the roster will not unassign them from existing records.`;
+  if (!confirm(msg)) return;
+  STAFF_DATA.splice(STAFF_DATA.findIndex(x=>x.id===staffId),1);
+  refreshStaffDropdowns();
+  renderMSCards();
+}
+
+// ── Refresh all staff dropdowns site-wide ────────────────────────────────────
+function refreshStaffDropdowns() {
+  STAFF_LIST = STAFF_DATA.map(s=>staffDN(s));
+
+  function repopSelect(id, withAll) {
+    const el=document.getElementById(id); if(!el) return;
+    const cur=el.value;
+    el.innerHTML = withAll ? '<option value="">All Staff</option>' : '';
+    STAFF_LIST.forEach(s=>{ const o=document.createElement('option'); o.value=o.textContent=s; el.appendChild(o); });
+    if (STAFF_LIST.includes(cur)) el.value=cur;
+  }
+  function repopChecks(id) {
+    const el=document.getElementById(id); if(!el) return;
+    el.innerHTML='';
+    STAFF_LIST.forEach(s=>{ const lbl=document.createElement('label'); lbl.className='staff-chk'; lbl.innerHTML=`<input type="checkbox" value="${esc(s)}"> ${esc(s)}`; el.appendChild(lbl); });
+  }
+
+  repopSelect('pl-f-staff',   true);
+  repopSelect('rh-f-owner',   true);
+  repopSelect('gp-f-owner',   false);
+  repopChecks('staff-checks');
+  repopChecks('int-staff-checks');
+
+  // Reset analytics so they re-compute with updated staff on next expand
+  plAnalyticsInit = false;
+}
+
+// ── BOOT ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
